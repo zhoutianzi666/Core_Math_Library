@@ -35,17 +35,17 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
   __shared__ float aTile[block_K][block_M * cuda_M];
   __shared__ float bTile[block_K][block_N * cuda_N];
   float cTile[cuda_M][cuda_N] = {0};
-  DATATYPE a_reg[4];
-  DATATYPE b_reg[4];
+  DATATYPE a_reg[cuda_M];
+  DATATYPE b_reg[cuda_N];
 
   for (int i = 0; i < k; i += block_K) {
     // threadIdx.x 和 threadIdx.y都是[0-15]之间的数字
-    // 每个block计算（16*4）* （16*4）这么多数字！，也就是block中每个cuda
-    // thread计算4*4个数字
+    // 每个block计算（block_M* cuda_M）* （block_N * cuda_N）这么多数字！，
+    // 也就是block中每个cuda thread计算cuda_M * cuda_N个数字
     int thread_id_in_block = threadIdx.x + threadIdx.y * block_M;
     // printf("%d\n", thread_id_in_block);
-    int aTile_x = thread_id_in_block / cuda_N;
-    int aTile_y = thread_id_in_block % cuda_N;
+    int aTile_x = thread_id_in_block / block_K;
+    int aTile_y = thread_id_in_block % block_K;
     aTile[aTile_y][aTile_x] =
         a[(aTile_x + blockIdx.x * block_N * cuda_N) * k + aTile_y + i];
     int bTile_x = thread_id_in_block / (block_N * cuda_N);
@@ -55,8 +55,8 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 
     __syncthreads();
 
-    // 下面是计算一个16*4 * 4 与 4 * 16*4
-    // 其实是 4 * 4 与 4 * 4 的乘积
+    // 下面是计算一个（block_M* cuda_M） * block_K 与 block_K * （block_N*
+    // cuda_N） 其实是 4 * 4 与 4 * 4 的乘积
     for (int j = 0; j < block_K; j++) {
       for (int cTile_i = 0; cTile_i < cuda_M; cTile_i++) {
         a_reg[cTile_i] = aTile[j][row_in_block + cTile_i];
@@ -82,6 +82,16 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
   }
 }
 
+void init(DATATYPE *a, int size) {
+  for (int i = 0; i < size; i++) {
+#if DATATYPE_BYTE == 4
+    a[i] = (rand() % 9999) / 10000.0;
+#else
+    a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
+#endif
+  }
+}
+
 int main(void) {
   int m = 512;
   int n = 512;
@@ -89,26 +99,14 @@ int main(void) {
   DATATYPE *a, *b;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
   if (status != cudaSuccess) {
-    printf("分配内存失败");
+    printf("分配paged内存失败");
   }
   status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
   if (status != cudaSuccess) {
-    printf("分配内存失败");
+    printf("分配paged内存失败");
   }
-  for (int i = 0; i < m * k; i++) {
-#if DATATYPE_BYTE == 4
-    a[i] = (rand() % 9999) / 10000.0;
-#else
-    a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
-#endif
-  }
-  for (int i = 0; i < k * n; i++) {
-#if DATATYPE_BYTE == 4
-    b[i] = (rand() % 9999) / 10000.0;
-#else
-    b[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
-#endif
-  }
+  init(a, m * k);
+  init(b, k * n);
 
   ACCU_DATATYPE *c;
   cudaMallocHost(&c, sizeof(ACCU_DATATYPE) * m * n);
@@ -170,24 +168,21 @@ int main(void) {
     matmul_gpu1<<<grid, block,
                   (block_M * cuda_M + block_N * cuda_N) * sizeof(float) *
                       block_K>>>(dev_a, dev_b, dev_c, m, n, k);
-    // gemm_kernel_NN<<<grid, block>>>(dev_a, dev_b, (float4*)(dev_c), 1, 0, m,
-    // n, k);
   }
 
   cudaEventRecord(end);
-  cudaEventSynchronize(beg);
   cudaEventSynchronize(end);
   float elapsed_time;
   cudaEventElapsedTime(&elapsed_time, beg, end);
-  printf("%f\n", elapsed_time);
+  printf("gpu gemm compute time: %f\n", elapsed_time);
 
   cudaMemcpy(c, dev_c, m * n * sizeof(ACCU_DATATYPE), cudaMemcpyDeviceToHost);
 
   double time2 = (double)clock() / CLOCKS_PER_SEC;
   system_clock::time_point now = system_clock::now();
   auto ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-  std::cout << "gpu time:" << ts.count() / 1000.0 << "ms" << std::endl;
-  printf("gpu time:%lf\n", double(time2 - time1) * 1000);
+  std::cout << "gpu total time:" << ts.count() / 1000.0 << "ms" << std::endl;
+  printf("gpu total time:%lf\n", double(time2 - time1) * 1000);
 
   time1 = (double)clock() / CLOCKS_PER_SEC;
   today = system_clock::now();
@@ -226,7 +221,7 @@ int main(void) {
     }
   }
 
-  printf("%f\n", max_diff);
+  printf("max_diff: %f\n", max_diff);
 
   cudaDeviceReset();
   cudaFreeHost(a);
