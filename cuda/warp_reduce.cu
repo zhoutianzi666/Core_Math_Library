@@ -18,7 +18,6 @@ void init(DATATYPE *a, int size) {
 __global__ void reduce1(DATATYPE *a, int n, DATATYPE *c) {
   const int tidx = threadIdx.x;
   DATATYPE val = a[tidx];
-  val += a[tidx + 32];
   for (int offset = 16; offset > 0; offset /= 2) {
     val += __shfl_down_sync(FULL_MASK, val, offset);
   }
@@ -28,7 +27,7 @@ __global__ void reduce1(DATATYPE *a, int n, DATATYPE *c) {
 }
 
 int main(void) {
-  int n = 32 * 2;
+  int n = 32;
   DATATYPE *a;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * n);
   if (status != cudaSuccess) {
