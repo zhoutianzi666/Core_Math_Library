@@ -17,40 +17,40 @@ using ACCU_DATATYPE = float;
 #define DATATYPE_BYTE 2
 #define ACCU_DATATYPE_BYTE 4
 
-// 每个 warp 计算 block_M * block_N 个结果
-#define block_M 16
-#define block_N 16
-#define block_K 16
+// 每个 warp 计算 warp_M * warp_N 个结果
+#define warp_M 16
+#define warp_N 16
+#define warp_K 16
 #define WARP_SIZE 32
 
 __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
                             int k) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   int warp_id = idx / WARP_SIZE;
-  // 每个warp计算block_M * block_N的结果
+  // 每个warp计算warp_M * warp_N的结果
 
-  int m_tile_num = m / block_M;
-  int n_tile_num = n / block_N;
+  int m_tile_num = m / warp_M;
+  int n_tile_num = n / warp_N;
 
   int m_tile_id = warp_id / n_tile_num;
   int n_tile_id = warp_id % n_tile_num;
 
-  wmma::fragment<wmma::matrix_a, block_M, block_N, block_K, DATATYPE,
+  wmma::fragment<wmma::matrix_a, warp_M, warp_N, warp_K, DATATYPE,
                  wmma::row_major>
       a_frag;
-  wmma::fragment<wmma::matrix_b, block_M, block_N, block_K, DATATYPE,
+  wmma::fragment<wmma::matrix_b, warp_M, warp_N, warp_K, DATATYPE,
                  wmma::row_major>
       b_frag;
-  wmma::fragment<wmma::accumulator, block_M, block_N, block_K, float> c_frag;
+  wmma::fragment<wmma::accumulator, warp_M, warp_N, warp_K, float> c_frag;
 
-  float *c_unique = c + m_tile_id * block_M * n + n_tile_id * block_N;
+  float *c_unique = c + m_tile_id * warp_M * n + n_tile_id * warp_N;
 
   // Initialize the output to zero
   wmma::fill_fragment(c_frag, 0.0f);
 
-  for (int i = 0; i < k; i += block_K) {
-    DATATYPE *a_unique = a + i + m_tile_id * block_M * k;
-    DATATYPE *b_unique = b + i * n + n_tile_id * block_N;
+  for (int i = 0; i < k; i += warp_K) {
+    DATATYPE *a_unique = a + i + m_tile_id * warp_M * k;
+    DATATYPE *b_unique = b + i * n + n_tile_id * warp_N;
     wmma::load_matrix_sync(a_frag, a_unique, k);
     wmma::load_matrix_sync(b_frag, b_unique, n);
     // Perform the matrix multiplication
@@ -109,7 +109,7 @@ int main(void) {
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
-  uint3 grid = {m * n / (16 * 16 * 16), 1, 1};
+  uint3 grid = {m * n / (warp_M * warp_N * (512 / 32)), 1, 1};
   uint3 block = {512, 1, 1};
 
   for (int i = 0; i < WARMUP; i++) {
