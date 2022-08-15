@@ -10,8 +10,8 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = half;
-#define DATATYPE_BYTE 2
+using DATATYPE = float;
+#define DATATYPE_BYTE 4
 
 using ACCU_DATATYPE = float;
 #define ACCU_DATATYPE_BYTE 4
@@ -41,9 +41,11 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 }
 
 #define block_K 512
-__global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
-                            int n, int k) {
-  int idx = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
+                            int k) {
+  const int tidx = threadIdx.x;
+  const int bidx = blockIdx.x;
+  int idx = tidx + bidx * blockDim.x;
   const int row = idx / n;
   const int col = idx % n;
   __shared__ DATATYPE aTile[block_K];
@@ -74,7 +76,6 @@ __global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
 #elif DATATYPE_BYTE == 2
   c[row * n + col] = __float2half(sum);
 #endif
-
 }
 
 int main(void) {
@@ -131,7 +132,7 @@ int main(void) {
   uint3 block = {512, 1, 1};
 
   for (int i = 0; i < WARMUP; i++) {
-    matmul_gpu2<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
+    matmul_gpu1<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
         dev_a, dev_b, dev_c, m, n, k);
   }
 
@@ -141,7 +142,7 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    matmul_gpu2<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
+    matmul_gpu1<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
         dev_a, dev_b, dev_c, m, n, k);
   }
 
