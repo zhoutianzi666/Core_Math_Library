@@ -11,12 +11,13 @@
 #define REPEATE 10
 
 using DATATYPE = half;
-using ACCU_DATATYPE = float;
 #define DATATYPE_BYTE 2
+
+using ACCU_DATATYPE = float;
 #define ACCU_DATATYPE_BYTE 4
 
-__global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, ACCU_DATATYPE *c, int m,
-                            int n, int k) {
+__global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
+                            int k) {
   const int tidx = threadIdx.x;
   const int bidx = blockIdx.x;
   int idx = tidx + bidx * blockDim.x;
@@ -29,17 +30,20 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, ACCU_DATATYPE *c, int m,
   for (int i = 0; i < k; i++) {
 #if DATATYPE_BYTE == 4
     sum += a[row * k + i] * b[i * n + col];
-#elif DATATYPE_BYTE == 2 && ACCU_DATATYPE_BYTE == 2
-    sum += a[row * k + i] * b[i * n + col];
-#elif DATATYPE_BYTE == 2 && ACCU_DATATYPE_BYTE == 4
+#elif DATATYPE_BYTE == 2
     sum += __half2float(a[row * k + i] * b[i * n + col]);
 #endif
   }
+
+#if DATATYPE_BYTE == 4
   c[row * n + col] = sum;
+#elif DATATYPE_BYTE == 2
+  c[row * n + col] = __float2half(sum);
+#endif
 }
 
 #define block_K 512
-__global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, ACCU_DATATYPE *c, int m,
+__global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
                             int n, int k) {
   const int tidx = threadIdx.x;
   const int bidx = blockIdx.x;
@@ -62,15 +66,19 @@ __global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, ACCU_DATATYPE *c, int m,
     for (int j = i; j < i + block_K; j++) {
 #if DATATYPE_BYTE == 4
       sum += aTile[j - i] * b[j * n + col];
-#elif DATATYPE_BYTE == 2 && ACCU_DATATYPE_BYTE == 2
-      sum += aTile[j - i] * b[j * n + col];
-#elif DATATYPE_BYTE == 2 && ACCU_DATATYPE_BYTE == 4
+#elif DATATYPE_BYTE == 2
       sum += __half2float(aTile[j - i] * b[j * n + col]);
 #endif
     }
     __syncthreads();
   }
+
+#if DATATYPE_BYTE == 4
   c[row * n + col] = sum;
+#elif DATATYPE_BYTE == 2
+  c[row * n + col] = __float2half(sum);
+#endif
+
 }
 
 int main(void) {
@@ -101,15 +109,15 @@ int main(void) {
 #endif
   }
 
-  ACCU_DATATYPE *c;
-  cudaMallocHost(&c, sizeof(ACCU_DATATYPE) * m * n);
-  memset(c, 0, sizeof(ACCU_DATATYPE) * m * n);
+  DATATYPE *c;
+  cudaMallocHost(&c, sizeof(DATATYPE) * m * n);
+  memset(c, 0, sizeof(DATATYPE) * m * n);
 
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
 
   DATATYPE *dev_a, *dev_b;
-  ACCU_DATATYPE *dev_c;
+  DATATYPE *dev_c;
 
   // allocate the memory on the GPU
   double time1 = (double)clock() / CLOCKS_PER_SEC;
@@ -118,7 +126,7 @@ int main(void) {
 
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_c, m * n * sizeof(ACCU_DATATYPE));
+  cudaMalloc((void **)&dev_c, m * n * sizeof(DATATYPE));
 
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
@@ -127,7 +135,7 @@ int main(void) {
   uint3 block = {512, 1, 1};
 
   for (int i = 0; i < WARMUP; i++) {
-    matmul_gpu1<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
+    matmul_gpu2<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
         dev_a, dev_b, dev_c, m, n, k);
   }
 
@@ -137,7 +145,7 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    matmul_gpu1<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
+    matmul_gpu2<<<grid, block, 0 * block_K * sizeof(DATATYPE)>>>(
         dev_a, dev_b, dev_c, m, n, k);
   }
 
@@ -148,7 +156,7 @@ int main(void) {
   cudaEventElapsedTime(&elapsed_time, beg, end);
   printf("%f\n", elapsed_time);
 
-  cudaMemcpy(c, dev_c, m * n * sizeof(ACCU_DATATYPE), cudaMemcpyDeviceToHost);
+  cudaMemcpy(c, dev_c, m * n * sizeof(DATATYPE), cudaMemcpyDeviceToHost);
 
   double time2 = (double)clock() / CLOCKS_PER_SEC;
   system_clock::time_point now = system_clock::now();
@@ -182,7 +190,7 @@ int main(void) {
   double max_diff = -1.;
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-#if ACCU_DATATYPE_BYTE == 4
+#if DATATYPE_BYTE == 4
       double c_gpu_fp32 = c[i * n + j];
 #else
       double c_gpu_fp32 = __half2float(c[i * n + j]);
