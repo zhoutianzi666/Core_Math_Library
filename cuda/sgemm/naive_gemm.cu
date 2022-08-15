@@ -18,9 +18,7 @@ using ACCU_DATATYPE = float;
 
 __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
                             int k) {
-  const int tidx = threadIdx.x;
-  const int bidx = blockIdx.x;
-  int idx = tidx + bidx * blockDim.x;
+  int idx = threadIdx.x + blockIdx.x * blockDim.x;
   const int row = idx / n;
   const int col = idx % n;
 
@@ -45,9 +43,7 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 #define block_K 512
 __global__ void matmul_gpu2(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
                             int n, int k) {
-  const int tidx = threadIdx.x;
-  const int bidx = blockIdx.x;
-  int idx = tidx + bidx * blockDim.x;
+  int idx = threadIdx.x + blockIdx.x * blockDim.x;
   const int row = idx / n;
   const int col = idx % n;
   __shared__ DATATYPE aTile[block_K];
