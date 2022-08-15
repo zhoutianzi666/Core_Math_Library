@@ -1,6 +1,3 @@
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
 #include <stdio.h>
 
 #include <chrono>
@@ -9,6 +6,8 @@
 #include <ratio>
 
 #include "cublas_v2.h"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 #define WARMUP 10
 #define REPEATE 10

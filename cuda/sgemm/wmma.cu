@@ -1,3 +1,4 @@
+#include <mma.h>
 #include <stdio.h>
 
 #include <chrono>
@@ -5,7 +6,6 @@
 #include <iostream>
 #include <ratio>
 
-#include <mma.h>
 #include "cublas_v2.h"
 using namespace nvcuda;
 
@@ -13,8 +13,9 @@ using namespace nvcuda;
 #define REPEATE 10
 
 using DATATYPE = half;
-using ACCU_DATATYPE = float;
 #define DATATYPE_BYTE 2
+
+using ACCU_DATATYPE = float;
 #define ACCU_DATATYPE_BYTE 4
 
 // 每个 warp 计算 warp_M * warp_N 个结果

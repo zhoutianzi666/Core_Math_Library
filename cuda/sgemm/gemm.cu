@@ -10,10 +10,10 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = float;
+using DATATYPE = half;
+#define DATATYPE_BYTE 2
+
 using ACCU_DATATYPE = float;
-#define DATATYPE_BYTE 4
-#define ACCU_DATATYPE_BYTE 4
 
 // 每个 block 含有block_M * block_N 个结果
 // 每个block计算（block_M * cuda_M） * （block_N * cuda_N）个结果呢！
@@ -32,9 +32,9 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
   const int row_in_block = (threadIdx.x) * cuda_M;
   const int col_in_block = (threadIdx.y) * cuda_N;
 
-  __shared__ float aTile[block_K][block_M * cuda_M];
-  __shared__ float bTile[block_K][block_N * cuda_N];
-  float cTile[cuda_M][cuda_N] = {0};
+  __shared__ DATATYPE aTile[block_K][block_M * cuda_M];
+  __shared__ DATATYPE bTile[block_K][block_N * cuda_N];
+  ACCU_DATATYPE cTile[cuda_M][cuda_N] = {0};
   DATATYPE a_reg[cuda_M];
   DATATYPE b_reg[cuda_N];
 
@@ -68,7 +68,12 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 #pragma unroll
       for (int cTile_i = 0; cTile_i < cuda_M; cTile_i++) {
         for (int cTile_j = 0; cTile_j < cuda_N; cTile_j++) {
+#if DATATYPE_BYTE == 4
           cTile[cTile_i][cTile_j] += a_reg[cTile_i] * b_reg[cTile_j];
+#elif DATATYPE_BYTE == 2
+          cTile[cTile_i][cTile_j] +=
+              __half2float(a_reg[cTile_i] * b_reg[cTile_j]);
+#endif
         }
       }
     }
@@ -108,15 +113,15 @@ int main(void) {
   init(a, m * k);
   init(b, k * n);
 
-  ACCU_DATATYPE *c;
-  cudaMallocHost(&c, sizeof(ACCU_DATATYPE) * m * n);
-  memset(c, 0, sizeof(ACCU_DATATYPE) * m * n);
+  DATATYPE *c;
+  cudaMallocHost(&c, sizeof(DATATYPE) * m * n);
+  memset(c, 0, sizeof(DATATYPE) * m * n);
 
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
 
   DATATYPE *dev_a, *dev_b;
-  ACCU_DATATYPE *dev_c;
+  DATATYPE *dev_c;
   cublasHandle_t handle;
   cublasCreate(&handle);
 
@@ -127,7 +132,7 @@ int main(void) {
 
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_c, m * n * sizeof(ACCU_DATATYPE));
+  cudaMalloc((void **)&dev_c, m * n * sizeof(DATATYPE));
 
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
@@ -176,7 +181,7 @@ int main(void) {
   cudaEventElapsedTime(&elapsed_time, beg, end);
   printf("gpu gemm compute time: %f\n", elapsed_time);
 
-  cudaMemcpy(c, dev_c, m * n * sizeof(ACCU_DATATYPE), cudaMemcpyDeviceToHost);
+  cudaMemcpy(c, dev_c, m * n * sizeof(DATATYPE), cudaMemcpyDeviceToHost);
 
   double time2 = (double)clock() / CLOCKS_PER_SEC;
   system_clock::time_point now = system_clock::now();
@@ -210,7 +215,7 @@ int main(void) {
   double max_diff = -1.;
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-#if ACCU_DATATYPE_BYTE == 4
+#if DATATYPE_BYTE == 4
       double c_gpu_fp32 = c[i * n + j];
 #else
       double c_gpu_fp32 = __half2float(c[i * n + j]);
