@@ -23,7 +23,7 @@ using ACCU_DATATYPE = float;
 #define warp_K 16
 #define WARP_SIZE 32
 
-__global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
+__global__ void matmul_wmma(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
                             int k) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   int warp_id = idx / WARP_SIZE;
@@ -113,7 +113,7 @@ int main(void) {
   uint3 block = {512, 1, 1};
 
   for (int i = 0; i < WARMUP; i++) {
-    matmul_gpu1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
+    matmul_wmma<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEvent_t beg, end;
@@ -122,7 +122,7 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    matmul_gpu1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
+    matmul_wmma<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEventRecord(end);
