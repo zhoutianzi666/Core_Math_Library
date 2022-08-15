@@ -14,7 +14,6 @@ using DATATYPE = float;
 #define DATATYPE_BYTE 4
 
 using ACCU_DATATYPE = float;
-#define ACCU_DATATYPE_BYTE 4
 
 __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
                             int k) {
