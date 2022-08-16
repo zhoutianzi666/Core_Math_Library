@@ -40,10 +40,10 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
 
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   int warp_id = idx / WARP_SIZE;
+  int lane_id = threadIdx.x % WARP_SIZE;
   // 每个warp计算warp_M * warp_N的结果
   int m_tile_num = m / warp_M;
   int n_tile_num = n / warp_N;
-  int lane_id = threadIdx.x % WARP_SIZE;
 
   int m_tile_id = warp_id / n_tile_num;
   int n_tile_id = warp_id % n_tile_num;
@@ -52,29 +52,29 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
   a += (m_tile_id * warp_M * k);
   b += (n_tile_id * warp_N);
 
+  int a_row = 0;
+  int a_col = 0;
+  if (lane_id < 16)
+    a_row = lane_id % 4;
+  else
+    a_row = lane_id % 4 + 4;
+  a_row += ((lane_id / 4) % 2) * 8;
+
+  int b_col = 0;
+  int b_row = lane_id % 4;
+
+  if (lane_id / 8 == 0) {
+    b_col = 0;
+  } else if (lane_id / 8 == 2) {
+    b_col = 8;
+  } else if (lane_id / 8 == 1) {
+    b_col = 4;
+  } else {
+    b_col = 12;
+  }
+
   for (int i = 0; i < k; i += warp_K) {
-    int a_row = 0;
-    if (lane_id < 16)
-      a_row = lane_id % 4;
-    else
-      a_row = lane_id % 4 + 4;
-    a_row += ((lane_id / 4) % 2) * 8;
-    int a_col = 0;
     MultiA[0] = ((uint2 *)(a + a_row * k + a_col + i))[0];
-
-    int b_col = 0;
-    int b_row = lane_id % 4;
-
-    if (lane_id / 8 == 0) {
-      b_col = 0;
-    } else if (lane_id / 8 == 2) {
-      b_col = 8;
-    } else if (lane_id / 8 == 1) {
-      b_col = 4;
-    } else {
-      b_col = 12;
-    }
-
     MultiB[0] = ((uint2 *)((b_row * n) + b_col + b + i * n))[0];
 
     {
@@ -195,7 +195,6 @@ int main(void) {
     for (int j = 0; j < n; j++) {
       double sum = 0.f;
       for (int ii = 0; ii < k; ii++) {
-        //  sum += a[i * k + ii] * b[ii * n + j];
         sum += __half2float(a[i * k + ii]) * __half2float(b[ii * n + j]);
       }
       c_cpu[i * n + j] = sum;
@@ -210,8 +209,6 @@ int main(void) {
   double max_diff = -1;
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
-      // printf("%f\n", c_cpu[i * n + j]);
-      // printf("%f\n", c[i * n + j]);
       if (std::abs(c_cpu[i * n + j] - c[i * n + j]) > max_diff) {
         max_diff = std::abs(c_cpu[i * n + j] - c[i * n + j]);
       }

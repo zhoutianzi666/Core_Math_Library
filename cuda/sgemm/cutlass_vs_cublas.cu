@@ -2,8 +2,7 @@
 
 /*
 nvcc cutlass_vs_cublas.cu -o a.out -arch sm_75 -lcublas
--I/zhoukangkang/2022-04-28inference_try/cutlass/include/ && ./a.out && rm -rf
-a.out
+-I/zhoukangkang/2022-05-10Paddle/cutlass/include/ && ./a.out && rm -rf a.out
 */
 
 #include <chrono>
@@ -159,10 +158,10 @@ int main(void) {
   for (int i = 0; i < REPEATE; i++) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
-                dev_a, k, &beta, dev_c, n);
+    // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
+    //             dev_a, k, &beta, dev_c, n);
 
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
   }
 
   cudaEventRecord(end);
