@@ -6,13 +6,15 @@
 #include <ratio>
 
 #include "cublas_v2.h"
+#include "utility.h"
 
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = half;
-#define DATATYPE_BYTE 2
+using DATATYPE = float;
+#define DATATYPE_BYTE 4
 
+// it is always float
 using ACCU_DATATYPE = float;
 
 // 每个 block 含有block_M * block_N 个结果
@@ -25,8 +27,8 @@ using ACCU_DATATYPE = float;
 #define cuda_M 4
 #define cuda_N 4
 
-__global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
-                            int k) {
+__global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
+                           int k) {
   const int row = (threadIdx.x + blockIdx.x * blockDim.x) * cuda_M;
   const int col = (threadIdx.y + blockIdx.y * blockDim.y) * cuda_N;
   const int row_in_block = (threadIdx.x) * cuda_M;
@@ -87,151 +89,11 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
   }
 }
 
-void init(DATATYPE *a, int size) {
-  for (int i = 0; i < size; i++) {
-#if DATATYPE_BYTE == 4
-    a[i] = (rand() % 9999) / 10000.0;
-#else
-    a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
-#endif
-  }
-}
-
-int main(void) {
-  int m = 512;
-  int n = 512;
-  int k = 512;
-  DATATYPE *a, *b;
-  cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-  if (status != cudaSuccess) {
-    printf("分配paged内存失败");
-  }
-  status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
-  if (status != cudaSuccess) {
-    printf("分配paged内存失败");
-  }
-  init(a, m * k);
-  init(b, k * n);
-
-  DATATYPE *c;
-  cudaMallocHost(&c, sizeof(DATATYPE) * m * n);
-  memset(c, 0, sizeof(DATATYPE) * m * n);
-
-  float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
-  memset(c_cpu_fp32, 0, sizeof(float) * m * n);
-
-  DATATYPE *dev_a, *dev_b;
-  DATATYPE *dev_c;
-  cublasHandle_t handle;
-  cublasCreate(&handle);
-
-  // allocate the memory on the GPU
-  double time1 = (double)clock() / CLOCKS_PER_SEC;
-  using std::chrono::system_clock;
-  system_clock::time_point today = system_clock::now();
-
-  cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_c, m * n * sizeof(DATATYPE));
-
-  cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-
+void matmul_gpu(DATATYPE *dev_a, DATATYPE *dev_b, DATATYPE *dev_c, int m, int n,
+                int k) {
   uint3 grid = {m / (block_M * cuda_M), n / (block_N * cuda_N), 1};
   uint3 block = {block_M, block_N, 1};
-
-  for (int i = 0; i < WARMUP; i++) {
-    // const float alpha=1.0f;
-    // const float beta=0.0f;
-    // cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
-    //                           n,m,k,
-    //                           &alpha,
-    //                           dev_b,n,
-    //                           dev_a,k,
-    //                           &beta,
-    //                           dev_c,n);
-    matmul_gpu1<<<grid, block,
-                  (block_M * cuda_M + block_N * cuda_N) * sizeof(float) *
-                      block_K>>>(dev_a, dev_b, dev_c, m, n, k);
-  }
-
-  cudaEvent_t beg, end;
-  cudaEventCreate(&beg);
-  cudaEventCreate(&end);
-  cudaEventRecord(beg);
-
-  for (int i = 0; i < REPEATE; i++) {
-    // const float alpha=1.0f;
-    // const float beta=0.0f;
-    // cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
-    //                           n,m,k,
-    //                           &alpha,
-    //                           dev_b,n,
-    //                           dev_a,k,
-    //                           &beta,
-    //                           dev_c,n);
-    matmul_gpu1<<<grid, block,
-                  (block_M * cuda_M + block_N * cuda_N) * sizeof(float) *
-                      block_K>>>(dev_a, dev_b, dev_c, m, n, k);
-  }
-
-  cudaEventRecord(end);
-  cudaEventSynchronize(end);
-  float elapsed_time;
-  cudaEventElapsedTime(&elapsed_time, beg, end);
-  printf("gpu gemm compute time: %f\n", elapsed_time);
-
-  cudaMemcpy(c, dev_c, m * n * sizeof(DATATYPE), cudaMemcpyDeviceToHost);
-
-  double time2 = (double)clock() / CLOCKS_PER_SEC;
-  system_clock::time_point now = system_clock::now();
-  auto ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-  std::cout << "gpu total time:" << ts.count() / 1000.0 << "ms" << std::endl;
-  printf("gpu total time:%lf\n", double(time2 - time1) * 1000);
-
-  time1 = (double)clock() / CLOCKS_PER_SEC;
-  today = system_clock::now();
-
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      double sum = 0.f;
-      for (int ii = 0; ii < k; ii++) {
-#if DATATYPE_BYTE == 4
-        sum += a[i * k + ii] * b[ii * n + j];
-#else
-        sum += __half2float(a[i * k + ii]) * __half2float(b[ii * n + j]);
-#endif
-      }
-      c_cpu_fp32[i * n + j] = sum;
-    }
-  }
-
-  time2 = (double)clock() / CLOCKS_PER_SEC;
-  now = system_clock::now();
-  ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-  std::cout << "cpu time:" << ts.count() / 1000.0 << "ms" << std::endl;
-  printf("cpu time:%lf\n", double(time2 - time1) * 1000);
-
-  double max_diff = -1.;
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-#if DATATYPE_BYTE == 4
-      double c_gpu_fp32 = c[i * n + j];
-#else
-      double c_gpu_fp32 = __half2float(c[i * n + j]);
-#endif
-      if (std::abs(c_cpu_fp32[i * n + j] - c_gpu_fp32) > max_diff) {
-        max_diff = std::abs(c_cpu_fp32[i * n + j] - c_gpu_fp32);
-      }
-    }
-  }
-
-  printf("max_diff: %f\n", max_diff);
-
-  cudaDeviceReset();
-  cudaFreeHost(a);
-  cudaFreeHost(b);
-  cudaFreeHost(c);
-  free(c_cpu_fp32);
-  return 0;
+  kernel_gpu<<<grid, block,
+               (block_M * cuda_M + block_N * cuda_N) * sizeof(float) *
+                   block_K>>>(dev_a, dev_b, dev_c, m, n, k);
 }

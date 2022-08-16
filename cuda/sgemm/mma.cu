@@ -6,6 +6,7 @@
 #include <ratio>
 
 #include "cublas_v2.h"
+#include "utility.h"
 
 using DATATYPE = half;
 using ACCU_DATATYPE = float;
@@ -13,24 +14,14 @@ using ACCU_DATATYPE = float;
 #define WARMUP 10
 #define REPEATE 10
 
-void init(DATATYPE *a, int size) {
-  for (int i = 0; i < size; i++) {
-#if DATATYPE_BYTE == 4
-    a[i] = (rand() % 9999) / 10000.0;
-#else
-    a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
-#endif
-  }
-}
-
 // 每个 warp 计算 warp_M * warp_N 个结果
 #define warp_M 16
 #define warp_N 16
 #define warp_K 4
 #define WARP_SIZE 32
 
-__global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
-                            int k) {
+__global__ void kernel_mma(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
+                           int k) {
   float Accum[8];
   uint2 MultiA[1];
   uint2 MultiB[1];
@@ -115,112 +106,9 @@ __global__ void matmul_gpu1(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
   }
 }
 
-int main(void) {
-  int m = 512;
-  int n = 512;
-  int k = 512;
-  DATATYPE *a;
-  DATATYPE *b;
-
-  cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-
-  if (status != cudaSuccess) {
-    printf("分配内存失败");
-  }
-  status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
-
-  if (status != cudaSuccess) {
-    printf("分配内存失败");
-  }
-  // srand((unsigned)time(NULL));
-  init(a, m * k);
-  init(b, k * n);
-
-  ACCU_DATATYPE *c;
-  cudaMallocHost(&c, sizeof(ACCU_DATATYPE) * m * n);
-  memset(c, 0, sizeof(ACCU_DATATYPE) * m * n);
-
-  ACCU_DATATYPE *c_cpu = (ACCU_DATATYPE *)malloc(sizeof(ACCU_DATATYPE) * m * n);
-  memset(c_cpu, 0, sizeof(ACCU_DATATYPE) * m * n);
-
-  DATATYPE *dev_a, *dev_b;
-  ACCU_DATATYPE *dev_c;
-
-  // allocate the memory on the GPU
-  double time1 = (double)clock() / CLOCKS_PER_SEC;
-  using std::chrono::system_clock;
-  system_clock::time_point today = system_clock::now();
-
-  cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
-  cudaMalloc((void **)&dev_c, m * n * sizeof(ACCU_DATATYPE));
-
-  cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-
+void matmul_gpu_mma(DATATYPE *dev_a, DATATYPE *dev_b, float *dev_c, int m,
+                    int n, int k) {
   uint3 grid = {m * n / (warp_M * warp_N * (512 / 32)), 1, 1};
   uint3 block = {512, 1, 1};
-
-  for (int i = 0; i < WARMUP; i++) {
-    matmul_gpu1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
-  }
-
-  cudaEvent_t beg, end;
-  cudaEventCreate(&beg);
-  cudaEventCreate(&end);
-  cudaEventRecord(beg);
-
-  for (int i = 0; i < REPEATE; i++) {
-    matmul_gpu1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
-  }
-
-  cudaEventRecord(end);
-  cudaEventSynchronize(beg);
-  cudaEventSynchronize(end);
-  float elapsed_time;
-  cudaEventElapsedTime(&elapsed_time, beg, end);
-  printf("gpu gemm compute time: %f\n", elapsed_time);
-
-  cudaMemcpy(c, dev_c, m * n * sizeof(ACCU_DATATYPE), cudaMemcpyDeviceToHost);
-
-  double time2 = (double)clock() / CLOCKS_PER_SEC;
-  system_clock::time_point now = system_clock::now();
-  auto ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-  std::cout << "gpu total time:" << ts.count() / 1000.0 << "ms" << std::endl;
-  printf("gpu total time:%lf\n", double(time2 - time1) * 1000);
-
-  time1 = (double)clock() / CLOCKS_PER_SEC;
-  today = system_clock::now();
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      double sum = 0.f;
-      for (int ii = 0; ii < k; ii++) {
-        sum += __half2float(a[i * k + ii]) * __half2float(b[ii * n + j]);
-      }
-      c_cpu[i * n + j] = sum;
-    }
-  }
-  time2 = (double)clock() / CLOCKS_PER_SEC;
-  now = system_clock::now();
-  ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-  std::cout << "cpu time:" << ts.count() / 1000.0 << "ms" << std::endl;
-  printf("cpu time:%lf\n", double(time2 - time1) * 1000);
-
-  double max_diff = -1;
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      if (std::abs(c_cpu[i * n + j] - c[i * n + j]) > max_diff) {
-        max_diff = std::abs(c_cpu[i * n + j] - c[i * n + j]);
-      }
-    }
-  }
-
-  printf("max_diff: %f\n", max_diff);
-
-  cudaDeviceReset();
-  cudaFreeHost(a);
-  cudaFreeHost(b);
-  cudaFreeHost(c);
-  free(c_cpu);
-  return 0;
+  kernel_mma<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
 }
