@@ -12,7 +12,7 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = half;
+using DATATYPE = float;
 using C_DATATYPE = float;
 
 int main(void) {
@@ -63,13 +63,13 @@ int main(void) {
     //                            dev_a,k,
     //                            &beta,
     //                            dev_c,n);
-    //  matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     //  matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
     //  matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
-    matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
+    matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEvent_t beg, end;
@@ -93,8 +93,8 @@ int main(void) {
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
-    matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
+    matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEventRecord(end);
