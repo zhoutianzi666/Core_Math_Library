@@ -6,6 +6,7 @@
 - 打算这里写一个程序，可以自动计算GPU的峰值算力
 - 如何计算GPU的算力
 - [处理器和GPU的计算能力如何计算的？](https://www.jishulink.com/content/post/1205946)
+- [硬核分享：CPU\GPU算力如何计算2022.06](https://www.bilibili.com/read/cv17211088)
 
 # NVIDIA GeForce RTX 2080 SUPER
 
