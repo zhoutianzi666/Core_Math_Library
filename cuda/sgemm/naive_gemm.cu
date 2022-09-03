@@ -83,7 +83,7 @@ __global__ void kernel_naive1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
 
 void matmul_gpu_naive(DATATYPE *dev_a, DATATYPE *dev_b, DATATYPE *dev_c, int m,
                       int n, int k) {
-  uint3 grid = {m * n / 32 + 1, 1, 1};
+  uint3 grid = {m * n / (32 * cuda_M * cuda_N) + 1, 1, 1};
   uint3 block = {32, 1, 1};
   kernel_naive1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
 }
