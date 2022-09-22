@@ -12,12 +12,12 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = float;
-using C_DATATYPE = float;
+using DATATYPE = half;
+using C_DATATYPE = half;
 
 int main(void) {
-  int m = 1024;
-  int n = 1024;
+  int m = 512;
+  int n = 512;
   int k = 512;
   DATATYPE *a, *b;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
@@ -53,16 +53,22 @@ int main(void) {
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
-    //             dev_a, k, &beta, dev_c, n);
-    matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
+    const DATATYPE alpha = 1.0f;
+    const DATATYPE beta = 0.0f;
+     // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+     cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+                               n,m,k,
+                               &alpha,
+                               dev_b,n,
+                               dev_a,k,
+                               &beta,
+                               dev_c,n);
+    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEvent_t beg, end;
@@ -71,16 +77,22 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
-    //             dev_a, k, &beta, dev_c, n);
-    matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    const DATATYPE alpha = 1.0f;
+    const DATATYPE beta = 0.0f;
+    // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+                              n,m,k,
+                              &alpha,
+                              dev_b,n,
+                              dev_a,k,
+                              &beta,
+                              dev_c,n);
+    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    //   matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
+    //    matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
+    //   matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
+    //  matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEventRecord(end);

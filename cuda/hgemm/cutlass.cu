@@ -17,14 +17,10 @@ nvcc cutlass_vs_cublas.cu utility.cu -o a.out -arch sm_75 -lcublas
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = float;
-using ACCU_DATATYPE = float;
-#define DATATYPE_BYTE 4
-#define ACCU_DATATYPE_BYTE 4
-
-cudaError_t CutlassSgemmNN(int M, int N, int K, float alpha, float const *A,
-                           int lda, float const *B, int ldb, float beta,
-                           float *C, int ldc) {
+using DATATYPE = half;
+cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
+                           DATATYPE const *A, int lda, DATATYPE const *B,
+                           int ldb, DATATYPE beta, DATATYPE *C, int ldc) {
   // Define type definition for single-precision CUTLASS GEMM with column-major
   // input matrices and 128x128x8 threadblock tile size (chosen by default).
   //
@@ -41,11 +37,11 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, float alpha, float const *A,
   using ColumnMajor = cutlass::layout::ColumnMajor;
 
   using CutlassGemm =
-      cutlass::gemm::device::Gemm<float,         // Data-type of A matrix
+      cutlass::gemm::device::Gemm<DATATYPE,      // Data-type of A matrix
                                   ColumnMajor,   // Layout of A matrix
-                                  float,         // Data-type of B matrix
+                                  DATATYPE,      // Data-type of B matrix
                                   ColumnMajor,   // Layout of B matrix
-                                  float,         // Data-type of C matrix
+                                  DATATYPE,      // Data-type of C matrix
                                   ColumnMajor>;  // Layout of C matrix
 
   // Define a CUTLASS GEMM type

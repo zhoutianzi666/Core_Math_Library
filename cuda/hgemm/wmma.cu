@@ -15,9 +15,8 @@ using namespace nvcuda;
 #define REPEATE 10
 
 using DATATYPE = half;
-#define DATATYPE_BYTE 2
 
-using ACCU_DATATYPE = float;
+using ACCU_DATATYPE = half;
 
 // 每个 warp 计算 warp_M * warp_N 个结果
 #define warp_M 16
@@ -25,8 +24,8 @@ using ACCU_DATATYPE = float;
 #define warp_K 16
 #define WARP_SIZE 32
 
-__global__ void kernel_wmma(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
-                            int k) {
+__global__ void kernel_wmma(DATATYPE *a, DATATYPE *b, ACCU_DATATYPE *c, int m,
+                            int n, int k) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   int warp_id = idx / WARP_SIZE;
   // 每个warp计算warp_M * warp_N的结果
@@ -43,9 +42,10 @@ __global__ void kernel_wmma(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
   wmma::fragment<wmma::matrix_b, warp_M, warp_N, warp_K, DATATYPE,
                  wmma::row_major>
       b_frag;
-  wmma::fragment<wmma::accumulator, warp_M, warp_N, warp_K, float> c_frag;
+  wmma::fragment<wmma::accumulator, warp_M, warp_N, warp_K, ACCU_DATATYPE>
+      c_frag;
 
-  float *c_unique = c + m_tile_id * warp_M * n + n_tile_id * warp_N;
+  ACCU_DATATYPE *c_unique = c + m_tile_id * warp_M * n + n_tile_id * warp_N;
 
   // Initialize the output to zero
   wmma::fill_fragment(c_frag, 0.0f);
@@ -61,8 +61,8 @@ __global__ void kernel_wmma(DATATYPE *a, DATATYPE *b, float *c, int m, int n,
   wmma::store_matrix_sync(c_unique, c_frag, n, wmma::mem_row_major);
 }
 
-void matmul_wmma(DATATYPE *dev_a, DATATYPE *dev_b, float *dev_c, int m, int n,
-                 int k) {
+void matmul_wmma(DATATYPE *dev_a, DATATYPE *dev_b, ACCU_DATATYPE *dev_c, int m,
+                 int n, int k) {
   uint3 grid = {m * n / (warp_M * warp_N * (512 / 32)), 1, 1};
   uint3 block = {512, 1, 1};
   kernel_wmma<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);

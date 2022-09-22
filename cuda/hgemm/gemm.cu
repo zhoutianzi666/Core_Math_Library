@@ -11,7 +11,10 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = float;
+using DATATYPE = half;
+
+// it is always float
+using ACCU_DATATYPE = float;
 
 // 每个 block 含有block_M * block_N 个结果
 // 每个block计算（block_M * cuda_M） * （block_N * cuda_N）个结果呢！
@@ -32,7 +35,7 @@ __global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 
   __shared__ DATATYPE aTile[block_K][block_M * cuda_M];
   __shared__ DATATYPE bTile[block_K][block_N * cuda_N];
-  DATATYPE cTile[cuda_M][cuda_N] = {0};
+  ACCU_DATATYPE cTile[cuda_M][cuda_N] = {0};
   DATATYPE a_reg[cuda_M];
   DATATYPE b_reg[cuda_N];
 
@@ -66,7 +69,8 @@ __global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
 #pragma unroll
       for (int cTile_i = 0; cTile_i < cuda_M; cTile_i++) {
         for (int cTile_j = 0; cTile_j < cuda_N; cTile_j++) {
-          cTile[cTile_i][cTile_j] += a_reg[cTile_i] * b_reg[cTile_j];
+          cTile[cTile_i][cTile_j] +=
+              __half2float(a_reg[cTile_i] * b_reg[cTile_j]);
         }
       }
     }
