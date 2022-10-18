@@ -34,13 +34,37 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, DATATYPE alpha,
 
   using ColumnMajor = cutlass::layout::ColumnMajor;
 
-  using CutlassGemm =
-      cutlass::gemm::device::Gemm<DATATYPE,      // Data-type of A matrix
-                                  ColumnMajor,   // Layout of A matrix
-                                  DATATYPE,      // Data-type of B matrix
-                                  ColumnMajor,   // Layout of B matrix
-                                  DATATYPE,      // Data-type of C matrix
-                                  ColumnMajor>;  // Layout of C matrix
+  using EpilogueOutputOp = cutlass::epilogue::thread::LinearCombination<
+  float,
+  1,
+  float,
+  float>;
+
+  using CutlassGemm = cutlass::gemm::device::Gemm<float,        // Data-type of A matrix
+                                                  ColumnMajor,  // Layout of A matrix
+                                                  float,        // Data-type of B matrix
+                                                  ColumnMajor,  // Layout of B matrix
+                                                  float,        // Data-type of C matrix
+                                                  ColumnMajor,
+                                                  float,
+                                                  cutlass::arch::OpClassSimt,
+                                                  cutlass::arch::Sm75,
+                                                  cutlass::gemm::GemmShape<128, 128, 8>,
+                                                  cutlass::gemm::GemmShape<64, 64, 8>,
+                                                  cutlass::gemm::GemmShape<1, 1, 1>,
+                                                  EpilogueOutputOp,
+                                                  cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
+                                                  2 >;
+
+
+
+  // using CutlassGemm =
+  //     cutlass::gemm::device::Gemm<DATATYPE,      // Data-type of A matrix
+  //                                 ColumnMajor,   // Layout of A matrix
+  //                                 DATATYPE,      // Data-type of B matrix
+  //                                 ColumnMajor,   // Layout of B matrix
+  //                                 DATATYPE,      // Data-type of C matrix
+  //                                 ColumnMajor>;  // Layout of C matrix
 
   // Define a CUTLASS GEMM type
   CutlassGemm gemm_operator;

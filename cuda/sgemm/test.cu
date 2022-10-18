@@ -55,10 +55,10 @@ int main(void) {
   for (int i = 0; i < WARMUP; i++) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
     //             dev_a, k, &beta, dev_c, n);
-    matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
@@ -73,10 +73,10 @@ int main(void) {
   for (int i = 0; i < REPEATE; i++) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
     //             dev_a, k, &beta, dev_c, n);
-    matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
