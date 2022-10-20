@@ -2,7 +2,7 @@
 
 /*
 
-nvcc basic_split_gemm.cu -o a.out -arch sm_75 -lcublas -I/zhoukangkang/2022-04-28inference_try/cutlass/include/ && ./a.out && rm -rf a.out
+nvcc fc_relu.cu -o a.out -arch sm_75 -lcublas -I/zhoukangkang/2022-04-28inference_try/cutlass/include/ && ./a.out && rm -rf a.out
 
 */
 
@@ -22,25 +22,34 @@ using DATATYPE = float;
 using ACCU_DATATYPE = float;
 #define DATATYPE_BYTE 4
 #define ACCU_DATATYPE_BYTE 4
+float ALPHA = 1.3;
+float BETA = 0.0;
 
 void init(DATATYPE *a, int size) {
   for (int i = 0; i < size; i++) {
-    a[i] = (rand() % 9999) / 10000.0;
+    a[i] = (rand() % 9999) / 10000.0 - 0.5;
   }
+}
+
+DATATYPE relu(DATATYPE a) {
+  if (a > 0) return a;
+  return 0.f;
 }
 
 cudaError_t CutlassSgemmNN(int M, int N, int K, float alpha, float const *A,
                            int lda, float const *B, int ldb, float beta,
+                           float* bias,
                            float *C, int ldc) {
 
   using ColumnMajor = cutlass::layout::ColumnMajor;
-  using EpilogueOutputOp = cutlass::epilogue::thread::LinearCombination<
+  using EpilogueOutputOp = cutlass::epilogue::thread::LinearCombinationRelu<
   float,
   1,
   float,
   float,
-  cutlass::epilogue::thread::ScaleType::Nothing
+  cutlass::epilogue::thread::ScaleType::NoBetaScaling
   >;
+  
   using CutlassGemm = cutlass::gemm::device::Gemm<float,       
                                                   ColumnMajor,
                                                   float,
@@ -63,9 +72,9 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, float alpha, float const *A,
   CutlassGemm::Arguments args({M, N, K},
                               {A, lda},  
                               {B, ldb}, 
+                              {bias, 0}, 
                               {C, ldc}, 
-                              {C, ldc}, 
-                              {alpha, beta});
+                              {alpha}, 2);
   // 如果支持split-k，那么就将下面注释打开哦！
   size_t bytes = CutlassGemm::get_workspace_size(args);
   void * workspace;
@@ -81,17 +90,13 @@ int main(void) {
   int m = 512;
   int n = 512;
   int k = 512;
-  DATATYPE *a, *b;
+  DATATYPE *a, *b, *bias;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-  if (status != cudaSuccess) {
-    printf("分配paged内存失败");
-  }
   status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
-  if (status != cudaSuccess) {
-    printf("分配paged内存失败");
-  }
+  cudaMallocHost(&bias, sizeof(DATATYPE) * n);
   init(a, m * k);
   init(b, k * n);
+  init(bias, n);
 
   ACCU_DATATYPE *c;
   cudaMallocHost(&c, sizeof(ACCU_DATATYPE) * m * n);
@@ -101,7 +106,7 @@ int main(void) {
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
 
   DATATYPE *dev_a, *dev_b;
-  ACCU_DATATYPE *dev_c;
+  ACCU_DATATYPE *dev_c, *dev_bias;
   cublasHandle_t handle;
   cublasCreate(&handle);
 
@@ -113,13 +118,15 @@ int main(void) {
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_c, m * n * sizeof(ACCU_DATATYPE));
+  cudaMalloc((void **)&dev_bias, n * sizeof(ACCU_DATATYPE));
 
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
+  cudaMemcpy(dev_bias, bias, n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
+    const float alpha = ALPHA;
+    const float beta = BETA;
     // cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
     //                           n,m,k,
     //                           &alpha,
@@ -128,7 +135,8 @@ int main(void) {
     //                           &beta,
     //                           dev_c,n);
 
-    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_bias,
+      dev_c, n);
   }
 
   cudaEvent_t beg, end;
@@ -137,8 +145,8 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
+    const float alpha = ALPHA;
+    const float beta = BETA;
     // cublasSgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
     //                           n,m,k,
     //                           &alpha,
@@ -147,7 +155,8 @@ int main(void) {
     //                           &beta,
     //                           dev_c,n);
 
-    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_bias,
+      dev_c, n);
   }
 
   cudaEventRecord(end);
@@ -173,7 +182,7 @@ int main(void) {
       for (int ii = 0; ii < k; ii++) {
         sum += a[i * k + ii] * b[ii * n + j];
       }
-      c_cpu_fp32[i * n + j] = sum;
+      c_cpu_fp32[i * n + j] = relu(ALPHA * sum + bias[j]);
     }
   }
 
