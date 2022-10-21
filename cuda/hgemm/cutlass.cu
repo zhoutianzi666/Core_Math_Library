@@ -84,24 +84,12 @@ cudaError_t CutlassHgemmNN1(int M, int N, int K, DATATYPE alpha,
 #include "cutlass/cutlass.h"
 #include "cutlass/epilogue/thread/linear_combination_relu.h"
 #include "cutlass/gemm/device/gemm.h"
-#include "cutlass/util/host_tensor.h"
-#include "cutlass/util/reference/device/gemm.h"
-#include "cutlass/util/reference/host/tensor_compare.h"
-#include "cutlass/util/reference/host/tensor_copy.h"
-#include "cutlass/util/reference/host/tensor_fill.h"
-#include "cutlass/util/tensor_view_io.h"
 
-// The code section below describes datatype for input, output matrices and
-// computation between elements in input matrices.
-using ElementAccumulator = float;  // <- data type of accumulator
-using ElementComputeEpilogue =
-    ElementAccumulator;  // <- data type of epilogue operations
-using ElementInputA =
-    cutlass::half_t;  // <- data type of elements in input matrix A
-using ElementInputB =
-    cutlass::half_t;  // <- data type of elements in input matrix B
-using ElementOutput =
-    cutlass::half_t;  // <- data type of elements in output matrix D
+using ElementAccumulator = float;  
+using ElementComputeEpilogue = ElementAccumulator;
+using ElementInputA = cutlass::half_t;
+using ElementInputB = cutlass::half_t;
+using ElementOutput = cutlass::half_t;
 
 // Note that if the output is column major, the bias has to be per row. i.e.
 // every row has different bias. If the output is row major, the bias has to be
@@ -119,26 +107,18 @@ using LayoutInputA = cutlass::layout::ColumnMajor;
 using LayoutInputB = cutlass::layout::ColumnMajor;
 using LayoutOutput = cutlass::layout::ColumnMajor;
 
-// This code section describes whether you want to use tensor cores or regular
-// SIMT cores on GPU SM
 using MMAOp = cutlass::arch::OpClassTensorOp;
-
-// This code section describes CUDA SM architecture number
 using SmArch = cutlass::arch::Sm75;
 
 // This code section describes the tile size a thread block will compute
 using ShapeMMAThreadBlock =
-    cutlass::gemm::GemmShape<128, 128, 32>;  // <- threadblock tile M = 128, N =
-                                             // 128, K = 32
-// This code section describes tile size a warp will compute
+    cutlass::gemm::GemmShape<128, 128, 32>;
 using ShapeMMAWarp =
-    cutlass::gemm::GemmShape<64, 64,
-                             32>;  // <- warp tile M = 64, N = 64, K = 32
+    cutlass::gemm::GemmShape<64, 64, 32>;
 // This code section describes the size of MMA op
 using ShapeMMAOp =
     cutlass::gemm::GemmShape<16, 8, 8>;  // <- MMA Op tile M = 8, N = 8, K = 4
 
-// This code section describes how threadblocks are scheduled on GPU
 using SwizzleThreadBlock =
     cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
 
@@ -153,14 +133,12 @@ using EpilogueOp = cutlass::epilogue::thread::LinearCombination<
     ElementAccumulator,               // <- data type of accumulator
     ElementComputeEpilogue>;          // <- data type for alpha/beta in linear
                                       // combination function
-
-// Number of pipelines you want to use
 constexpr int NumStages = 2;
 
 using Gemm = cutlass::gemm::device::Gemm<
     ElementInputA, LayoutInputA, ElementInputB, LayoutInputB, ElementOutput,
     LayoutOutput, ElementAccumulator, MMAOp, SmArch, ShapeMMAThreadBlock,
-    ShapeMMAWarp, ShapeMMAOp, EpilogueOp, SwizzleThreadBlock, NumStages>;
+    ShapeMMAWarp, ShapeMMAOp, EpilogueOp, SwizzleThreadBlock, NumStages, 8, 8 ,false>;
 
 cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
                            DATATYPE const *A, int lda, DATATYPE const *B,
@@ -184,20 +162,17 @@ cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
   // Using the arguments, query for extra workspace required for matrix
   // multiplication computation
   size_t workspace_size = Gemm::get_workspace_size(arguments);
+  size_t bytes = Gemm::get_workspace_size(arguments);
+  void * workspace;
+  cudaMalloc((void**)&workspace, bytes);
 
-  // Allocate workspace memory
-  cutlass::device_memory::allocation<uint8_t> workspace(workspace_size);
-
-  // Instantiate CUTLASS kernel depending on templates
   Gemm gemm_op;
 
-  // Check the problem size is supported or not
   cutlass::Status status = gemm_op.can_implement(arguments);
-
   // Initialize CUTLASS kernel with arguments and workspace pointer
-  status = gemm_op.initialize(arguments, workspace.get());
+  status = gemm_op.initialize(arguments, workspace);
+
   // Launch initialized CUTLASS kernel
   status = gemm_op();
-  // Create instantiation for device reference gemm kernel
   return cudaSuccess;
 }
