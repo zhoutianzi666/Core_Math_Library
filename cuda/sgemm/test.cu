@@ -88,7 +88,7 @@ int main(void) {
   float elapsed_time;
   cudaEventElapsedTime(&elapsed_time, beg, end);
   printf("gpu gemm compute time: %f\n", elapsed_time);
-  double Gflops = REPEATE * ((float)m * n * k * 2 / 1000000000) / elapsed_time;
+  double Gflops = REPEATE * ((float)m * n * k * 2 / 1000000) / elapsed_time;
   printf("Gflops: %5.2f \n", Gflops);
 
   cudaMemcpy(c, dev_c, m * n * sizeof(C_DATATYPE), cudaMemcpyDeviceToHost);
