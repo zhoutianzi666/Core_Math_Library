@@ -52,7 +52,7 @@ int nhwc(struct logical_struct shape, struct logical_struct index) {
          index.w * shape.c + index.c;
 }
 
-void naive_conv_cpu(const half *input, const half *weight, float *output,
+void naive_conv_cpu(const float *input, const float *weight, float *output,
                     int batch, int ic, int ih, int iw, int kh, int kw, int oc,
                     int pad_h, int pad_w, int stride_h, int stride_w) {
   int oh = (ih + pad_h * 2 - kh) / stride_h + 1;
@@ -73,7 +73,7 @@ void naive_conv_cpu(const half *input, const half *weight, float *output,
           struct logical_struct output_index {
             bs_i, oc_i, oh_i, ow_i
           };
-          float *out_ptr = output + nchw(output_shape, output_index);
+          float *out_ptr = output + nhwc(output_shape, output_index);
           float sum = 0.f;
 
           for (int kh_i = 0; kh_i < kh; kh_i++) {
@@ -90,10 +90,10 @@ void naive_conv_cpu(const half *input, const half *weight, float *output,
                 struct logical_struct weight_index {
                   oc_i, ic_i, kh_i, kw_i
                 };
-                const half *in_ptr = input + nchw(input_shape, input_index);
-                const half *weight_ptr =
-                    weight + nchw(weight_shape, weight_index);
-                sum += __half2float(*in_ptr) * __half2float(*weight_ptr);
+                const float *in_ptr = input + nhwc(input_shape, input_index);
+                const float *weight_ptr =
+                    weight + nhwc(weight_shape, weight_index);
+                sum += (*in_ptr) * (*weight_ptr);
               }
             }
           }

@@ -9,9 +9,6 @@
 #include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
-#define WARMUP 10
-#define REPEATE 10
-
 using DATATYPE = half;
 
 #include <algorithm>
@@ -38,11 +35,11 @@ using LayoutInputB = cutlass::layout::TensorNHWC;
 using LayoutOutput = cutlass::layout::TensorNHWC;
 using MMAOp = cutlass::arch::OpClassTensorOp;
 using SmArch = cutlass::arch::Sm75;
-using ThreadblockShape = cutlass::gemm::GemmShape<128, 128, 32>;
-using WarpShape = cutlass::gemm::GemmShape<64, 64, 32>;
+using ThreadblockShape = cutlass::gemm::GemmShape<128, 32, 32>;
+using WarpShape = cutlass::gemm::GemmShape<32, 32, 32>;
 using InstructionShape = cutlass::gemm::GemmShape<16, 8, 8>;
 using SwizzleThreadBlock =
-    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
+    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>;
 constexpr int NumStages = 2;
 static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =
     cutlass::conv::IteratorAlgorithm::kOptimized;
@@ -53,13 +50,18 @@ using EpilogueOp = cutlass::epilogue::thread::LinearCombination<
                               // memory access. This becomes the vector width of
                               // math instructions in the epilogue too.
     ElementAccumulator,       // Data type of accumulator
-    ElementComputeEpilogue>;  // Data type for alpha/beta in linear combination
+    ElementComputeEpilogue,
+    cutlass::epilogue::thread::ScaleType::Nothing>;  // Data type for alpha/beta in linear combination
 
 using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     ElementInputA, LayoutInputA, ElementInputB, LayoutInputB, ElementOutput,
     LayoutOutput, ElementAccumulator, MMAOp, SmArch, ThreadblockShape,
     WarpShape, InstructionShape, EpilogueOp, SwizzleThreadBlock, NumStages,
-    cutlass::arch::OpMultiplyAdd, IteratorAlgorithm>::Kernel;
+    cutlass::arch::OpMultiplyAdd, IteratorAlgorithm,
+    cutlass::conv::StrideSupport::kStrided,
+    8,
+    8
+    >::Kernel;
 
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
