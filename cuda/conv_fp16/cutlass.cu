@@ -35,23 +35,20 @@ using LayoutInputB = cutlass::layout::TensorNHWC;
 using LayoutOutput = cutlass::layout::TensorNHWC;
 using MMAOp = cutlass::arch::OpClassTensorOp;
 using SmArch = cutlass::arch::Sm75;
-using ThreadblockShape = cutlass::gemm::GemmShape<128, 32, 32>;
-using WarpShape = cutlass::gemm::GemmShape<32, 32, 32>;
+using ThreadblockShape = cutlass::gemm::GemmShape<64, 32, 64>;
+using WarpShape = cutlass::gemm::GemmShape<32, 32, 64>;
 using InstructionShape = cutlass::gemm::GemmShape<16, 8, 8>;
 using SwizzleThreadBlock =
     cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>;
 constexpr int NumStages = 2;
 static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =
     cutlass::conv::IteratorAlgorithm::kOptimized;
-using EpilogueOp = cutlass::epilogue::thread::LinearCombination<
+using EpilogueOp = cutlass::epilogue::thread::LinearCombinationRelu<
     ElementOutput,  // Data type of output matrix.
     128 / cutlass::sizeof_bits<ElementOutput>::
-              value,          // The number of elements per vectorized.
-                              // memory access. This becomes the vector width of
-                              // math instructions in the epilogue too.
+              value,
     ElementAccumulator,       // Data type of accumulator
-    ElementComputeEpilogue,
-    cutlass::epilogue::thread::ScaleType::Nothing>;  // Data type for alpha/beta in linear combination
+    ElementComputeEpilogue>;  // Data type for alpha/beta in linear combination
 
 using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     ElementInputA, LayoutInputA, ElementInputB, LayoutInputB, ElementOutput,
@@ -66,7 +63,8 @@ using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
-void cutlass_nhwc_conv(const half *input, const half *weight, half *output,
+void cutlass_nhwc_conv(const half *input, const half *weight, const half *bias,
+                       half *output,
                        int batch, int ic, int ih, int iw, int kh, int kw,
                        int oc, int pad_h, int pad_w, int stride_h, int stride_w,
                        int oh, int ow) {
@@ -74,15 +72,15 @@ void cutlass_nhwc_conv(const half *input, const half *weight, half *output,
 
   cutlass::conv::Conv2dProblemSize problem_size(
       {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h, pad_w, pad_h, pad_w},
-      {stride_h, stride_w}, {stride_h, stride_w}, {batch, oh, ow, oc}, mode, 1);
+      {stride_h, stride_w}, {1, 1}, {batch, oh, ow, oc}, mode, 1);
 
   typename ImplicitGemm::Arguments arguments{
       problem_size,
       {(cutlass::half_t *)input, {ic, ic * iw, ic * iw * ih}},
       {(cutlass::half_t *)weight, {ic, ic * kw, ic * kw * kh}},
+      {(cutlass::half_t *)bias, {0, 0, 0}},
       {(cutlass::half_t *)output, {oc, oc * ow, oc * ow * oh}},
-      {(cutlass::half_t *)output, {oc, oc * ow, oc * ow * oh}},
-      {1.f, 0.f}};
+      {1.f, 1.f}};
 
   ImplicitGemm implicit_gemm_op;
   size_t bytes = implicit_gemm_op.get_workspace_size(arguments);
