@@ -21,8 +21,6 @@ using DATATYPE = half;
 using DATATYPE = half;
 
 void cudnn_nhwc_conv(const half *input, const half *weight, half *output,
-                       int batch, int ic, int ih, int iw, int kh, int kw,
-                       int oc, int pad_h, int pad_w, int stride_h, int stride_w,
-                       int oh, int ow) {
-
-}
+                     int batch, int ic, int ih, int iw, int kh, int kw, int oc,
+                     int pad_h, int pad_w, int stride_h, int stride_w, int oh,
+                     int ow) {}

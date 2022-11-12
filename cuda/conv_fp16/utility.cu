@@ -53,9 +53,9 @@ int nhwc(struct logical_struct shape, struct logical_struct index) {
 }
 
 void naive_conv_cpu(const half *input, const half *weight, const half *bias,
-                    float *output,
-                    int batch, int ic, int ih, int iw, int kh, int kw, int oc,
-                    int pad_h, int pad_w, int stride_h, int stride_w, const half *residual) {
+                    float *output, int batch, int ic, int ih, int iw, int kh,
+                    int kw, int oc, int pad_h, int pad_w, int stride_h,
+                    int stride_w, const half *residual) {
   int oh = (ih + pad_h * 2 - kh) / stride_h + 1;
   int ow = (iw + pad_w * 2 - kw) / stride_w + 1;
   struct logical_struct input_shape {
@@ -98,7 +98,8 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
               }
             }
           }
-          if (residual) sum += __half2float(*(residual + nhwc(output_shape, output_index)));
+          if (residual)
+            sum += __half2float(*(residual + nhwc(output_shape, output_index)));
           sum += __half2float(*(bias + oc_i));
           *out_ptr = sum > 0 ? sum : 0.f;
         }
