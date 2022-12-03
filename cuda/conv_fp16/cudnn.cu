@@ -1,9 +1,7 @@
+#pragma once
 #include <stdio.h>
 
-#include <chrono>
-#include <ctime>
 #include <iostream>
-#include <ratio>
 
 #include "cublas_v2.h"
 #include "cutlass/gemm/device/gemm.h"

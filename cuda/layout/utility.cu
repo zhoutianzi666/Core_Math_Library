@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <iostream>
+
 #include "utility.h"
 
 void init(half *a, int size) {
@@ -50,6 +52,32 @@ void naive_nchw_nhwc_cpu(const half *input, half *output, int batch, int ic,
           };
           *(output + nhwc(output_shape, output_index)) =
               *(input + nchw(input_shape, input_index));
+        }
+      }
+    }
+  }
+}
+
+void naive_nhwc_nchw_cpu(const half *input, half *output, int batch, int ic,
+                         int ih, int iw) {
+  struct logical_struct input_shape {
+    batch, ic, ih, iw
+  };
+  struct logical_struct output_shape {
+    batch, ic, ih, iw
+  };
+  for (int batch_i = 0; batch_i < batch; batch_i++) {
+    for (int ic_i = 0; ic_i < ic; ic_i++) {
+      for (int ih_i = 0; ih_i < ih; ih_i++) {
+        for (int iw_i = 0; iw_i < iw; iw_i++) {
+          struct logical_struct input_index {
+            batch_i, ic_i, ih_i, iw_i
+          };
+          struct logical_struct output_index {
+            batch_i, ic_i, ih_i, iw_i
+          };
+          *(output + nchw(output_shape, output_index)) =
+              *(input + nhwc(input_shape, input_index));
         }
       }
     }

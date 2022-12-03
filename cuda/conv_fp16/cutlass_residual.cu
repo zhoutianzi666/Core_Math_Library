@@ -1,19 +1,14 @@
+#pragma once
 #include <stdio.h>
 
-#include <chrono>
-#include <ctime>
 #include <iostream>
-#include <ratio>
 
-#include "cublas_v2.h"
 #include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
 using DATATYPE = half;
 
 #include <cutlass/conv/kernel/default_conv2d_fprop_with_broadcast.h>
-
-#include <algorithm>
 
 #include "cutlass/conv/device/implicit_gemm_convolution.h"
 #include "cutlass/conv/kernel/default_conv2d_fprop.h"

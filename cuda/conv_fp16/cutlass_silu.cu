@@ -1,29 +1,27 @@
-
 #pragma once
 #include <stdio.h>
 
 #include <iostream>
 
+#include "cublas_v2.h"
+#include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
 using DATATYPE = half;
 
+#include <algorithm>
+
 #include "cutlass/conv/device/implicit_gemm_convolution.h"
 #include "cutlass/conv/kernel/default_conv2d_fprop.h"
 #include "cutlass/cutlass.h"
-#include "cutlass/gemm/device/gemm.h"
-
-void check(cutlass::Status status) {
-  if (status != cutlass::Status::kSuccess) {
-    printf("不能实施\n");
-  }
-}
+#include "cutlass/epilogue/thread/linear_combination_silu.h"
 
 static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =
     cutlass::conv::IteratorAlgorithm::kFewChannels;
-using EpilogueOp = cutlass::epilogue::thread::LinearCombinationRelu<
+
+using EpilogueOp = cutlass::epilogue::thread::LinearCombinationSilu<
     cutlass::half_t,  // Data type of output matrix.
-    8,
+    1,
     float,   // Data type of accumulator
     float>;  // Data type for alpha/beta in linear combination
 
@@ -35,15 +33,22 @@ using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     cutlass::gemm::GemmShape<16, 8, 8>, EpilogueOp,
     cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>, 2,
     cutlass::arch::OpMultiplyAdd, IteratorAlgorithm,
-    cutlass::conv::StrideSupport::kStrided, 8, 8>::Kernel;
+    cutlass::conv::StrideSupport::kUnity, 8, 8>::Kernel;
 
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
-void cutlass_nhwc_conv(const half *input, const half *weight, const half *bias,
-                       half *output, int batch, int ic, int ih, int iw, int kh,
-                       int kw, int oc, int pad_h, int pad_w, int stride_h,
-                       int stride_w, int oh, int ow) {
+void cutlass_nhwc_conv_bias_swish(const half *input, const half *weight,
+                                  const half *bias, half *output, int batch,
+                                  int ic, int ih, int iw, int kh, int kw,
+                                  int oc, int pad_h, int pad_w, int stride_h,
+                                  int stride_w, int oh, int ow) {
+  auto check = [](cutlass::Status status) {
+    if (status != cutlass::Status::kSuccess) {
+      printf("不能实施\n");
+    }
+  };
+
   cutlass::conv::Mode mode = cutlass::conv::Mode::kCrossCorrelation;
 
   cutlass::conv::Conv2dProblemSize problem_size(

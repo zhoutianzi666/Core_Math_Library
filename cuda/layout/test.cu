@@ -14,9 +14,9 @@ using DATATYPE = half;
 
 int main(void) {
   int batch = 1;
-  int ic = 3;
-  int ih = 224;
-  int iw = 224;
+  int ic = 160;
+  int ih = 1;
+  int iw = 480 * 280;
   // Note input is in CPU place
   DATATYPE *input;
   int input_size = batch * ic * ih * iw;
@@ -44,7 +44,11 @@ int main(void) {
              cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    my_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc1(dev_input, dev_out, batch, ic, ih * iw);
+    //my_row_col(dev_input, dev_out, batch, ic, ih * iw);
+    cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
   }
 
   cudaEvent_t beg, end;
@@ -53,14 +57,18 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    my_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc1(dev_input, dev_out, batch, ic, ih * iw);
+    //my_row_col(dev_input, dev_out, batch, ic, ih * iw);
+    cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
   }
 
   cudaEventRecord(end);
   cudaEventSynchronize(end);
   float elapsed_time;
   cudaEventElapsedTime(&elapsed_time, beg, end);
-  printf("gpu conv compute time: %f\n", elapsed_time);
+  printf("gpu layout time: %f\n", elapsed_time);
 
   cudaMemcpy(out_from_dev, dev_out, out_size * sizeof(DATATYPE),
              cudaMemcpyDeviceToHost);
@@ -79,6 +87,7 @@ int main(void) {
   memset(out_cpu_fp16, 0, sizeof(half) * out_size);
 
   naive_nchw_nhwc_cpu(input, out_cpu_fp16, batch, ic, ih, iw);
+  //naive_nhwc_nchw_cpu(input, out_cpu_fp16, batch, ic, ih, iw);
 
   time2 = (double)clock() / CLOCKS_PER_SEC;
   now = system_clock::now();

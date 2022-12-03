@@ -35,13 +35,6 @@ float diff(const float *c, const float *c_baseline, int n) {
   return max_diff;
 }
 
-struct logical_struct {
-  int n;
-  int c;
-  int h;
-  int w;
-};
-
 int nchw(struct logical_struct shape, struct logical_struct index) {
   return index.n * shape.c * shape.h * shape.w + index.c * shape.h * shape.w +
          index.h * shape.w + index.w;
@@ -101,7 +94,13 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
           if (residual)
             sum += __half2float(*(residual + nhwc(output_shape, output_index)));
           sum += __half2float(*(bias + oc_i));
-          *out_ptr = sum > 0 ? sum : 0.f;
+
+          // relu
+          //*out_ptr = sum > 0 ? sum : 0.f;
+
+          // silu
+          float x = sum;
+          *out_ptr = (x) * (1.f / (1 + exp(-x)));
         }
       }
     }
