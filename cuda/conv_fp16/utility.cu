@@ -67,7 +67,7 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
           struct logical_struct output_index {
             bs_i, oc_i, oh_i, ow_i
           };
-          float *out_ptr = output + nhwc(output_shape, output_index);
+          float *out_ptr = output + nchw(output_shape, output_index);
           float sum = 0.f;
 
           for (int kh_i = 0; kh_i < kh; kh_i++) {
@@ -84,16 +84,21 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
                 struct logical_struct weight_index {
                   oc_i, ic_i, kh_i, kw_i
                 };
-                const half *in_ptr = input + nhwc(input_shape, input_index);
+                const half *in_ptr = input + nchw(input_shape, input_index);
                 const half *weight_ptr =
-                    weight + nhwc(weight_shape, weight_index);
+                    weight + nchw(weight_shape, weight_index);
                 sum += __half2float(*in_ptr) * __half2float(*weight_ptr);
               }
             }
           }
           if (residual)
-            sum += __half2float(*(residual + nhwc(output_shape, output_index)));
+            sum += __half2float(*(residual + nchw(output_shape, output_index)));
+          
+          // bias
           sum += __half2float(*(bias + oc_i));
+
+          // no bias
+          // *out_ptr = sum;
 
           // relu
           //*out_ptr = sum > 0 ? sum : 0.f;
@@ -101,6 +106,12 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
           // silu
           float x = sum;
           *out_ptr = (x) * (1.f / (1 + exp(-x)));
+
+          // leaky_relu
+          // if (x > 0) *out_ptr = x;
+          // else {
+          //   *out_ptr = x * 0.5 ;
+          // }
         }
       }
     }

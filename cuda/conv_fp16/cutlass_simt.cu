@@ -3,7 +3,6 @@
 
 #include <iostream>
 
-#include "cublas_v2.h"
 #include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
@@ -21,24 +20,24 @@ static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =
 
 using EpilogueOp = cutlass::epilogue::thread::LinearCombinationSilu<
     cutlass::half_t,  // Data type of output matrix.
-    8,
+    1,
     float,   // Data type of accumulator
     float>;  // Data type for alpha/beta in linear combination
 
 using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     cutlass::half_t, cutlass::layout::TensorNHWC, cutlass::half_t,
     cutlass::layout::TensorNHWC, cutlass::half_t, cutlass::layout::TensorNHWC,
-    float, cutlass::arch::OpClassTensorOp, cutlass::arch::Sm75,
-    cutlass::gemm::GemmShape<16, 32, 16>, cutlass::gemm::GemmShape<16, 32, 16>,
-    cutlass::gemm::GemmShape<16, 8, 8>, EpilogueOp,
-    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>, 2,
+    float, cutlass::arch::OpClassSimt, cutlass::arch::Sm75,
+    cutlass::gemm::GemmShape<128, 128, 8>, cutlass::gemm::GemmShape<32, 64, 8>,
+    cutlass::gemm::GemmShape<1, 1, 1>, EpilogueOp,
+    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>, 2,
     cutlass::arch::OpMultiplyAdd, IteratorAlgorithm,
-    cutlass::conv::StrideSupport::kUnity, 1, 1>::Kernel;
+    cutlass::conv::StrideSupport::kUnity, 8, 8>::Kernel;
 
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
-void cutlass_nhwc_conv_bias_swish(const half *input, const half *weight,
+void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
                                   const half *bias, half *output, int batch,
                                   int ic, int ih, int iw, int kh, int kw,
                                   int oc, int pad_h, int pad_w, int stride_h,

@@ -1,10 +1,5 @@
 #include <stdio.h>
 
-/*
-nvcc cutlass_vs_cublas.cu utility.cu -o a.out -arch sm_75 -lcublas
--I/zhoukangkang/2022-05-10Paddle/cutlass/include/ && ./a.out && rm -rf a.out
-*/
-
 #include <chrono>
 #include <ctime>
 #include <iostream>
@@ -55,9 +50,6 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, DATATYPE alpha,
                                                   EpilogueOutputOp,
                                                   cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
                                                   2 >;
-
-
-
   // using CutlassGemm =
   //     cutlass::gemm::device::Gemm<DATATYPE,      // Data-type of A matrix
   //                                 ColumnMajor,   // Layout of A matrix
@@ -101,6 +93,5 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, DATATYPE alpha,
     return cudaErrorUnknown;
   }
 
-  // Return success, if no errors were encountered.
   return cudaSuccess;
 }

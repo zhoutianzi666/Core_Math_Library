@@ -22,6 +22,8 @@ float diff(const half *c, const half *c_baseline, int n) {
   return max_diff;
 }
 
+// 根据`逻辑索引`和`逻辑shape`返回线性偏移
+
 int nchw(struct logical_struct shape, struct logical_struct index) {
   return index.n * shape.c * shape.h * shape.w + index.c * shape.h * shape.w +
          index.h * shape.w + index.w;

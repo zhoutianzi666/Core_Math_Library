@@ -44,11 +44,12 @@ int main(void) {
              cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
-    //my_naive_nchw_nhwc1(dev_input, dev_out, batch, ic, ih * iw);
-    //my_row_col(dev_input, dev_out, batch, ic, ih * iw);
-    cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih * iw);
+    //cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
     //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
+    //cudaMemcpy(dev_out, dev_input, sizeof(half) * out_size, cudaMemcpyDeviceToDevice);
+    my_row_col0(dev_out, dev_input, batch, ic, ih * iw);
+    //my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
   }
 
   cudaEvent_t beg, end;
@@ -57,11 +58,12 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
-    //my_naive_nchw_nhwc1(dev_input, dev_out, batch, ic, ih * iw);
-    //my_row_col(dev_input, dev_out, batch, ic, ih * iw);
-    cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
+    //my_naive_nchw_nhwc(dev_input, dev_out, batch, ic, ih * iw);
+    //cutlass_nchw_nhwc(dev_input, dev_out, batch, ic, ih, iw);
     //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
+    //cudaMemcpy(dev_out, dev_input, sizeof(half) * out_size, cudaMemcpyDeviceToDevice);
+    my_row_col0(dev_out, dev_input, batch, ic, ih * iw);
+    //my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
   }
 
   cudaEventRecord(end);

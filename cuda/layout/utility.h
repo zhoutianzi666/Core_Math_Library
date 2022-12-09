@@ -10,14 +10,12 @@ struct logical_struct {
   int h;
   int w;
 };
-
-
-
 int nchw(struct logical_struct shape, struct logical_struct index);
 int nhwc(struct logical_struct shape, struct logical_struct index);
-void my_naive_nchw_nhwc(const half *input, half *output, int batch, int ic, int ih, int iw);
-void my_naive_nchw_nhwc1(half *input, half *output, int batch, int ic, int hw);
+
+void my_naive_nchw_nhwc(half *input, half *output, int batch, int ic, int hw);
 void cutlass_nchw_nhwc(const half *input, half *output, int batch, int ic, int ih, int iw);
 void cutlass_nhwc_nchw(const half *input, half *output, int batch, int ic, int ih, int iw);
 
-void my_row_col(const half *input, half *output, int batch, int m, int n);
+void my_row_col0(half *output, const half *input, int batch, int m, int n);
+void my_row_col1(half *output, const half *input, int batch, int m, int n);
