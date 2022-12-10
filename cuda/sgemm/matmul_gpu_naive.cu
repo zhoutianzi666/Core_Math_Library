@@ -3,9 +3,10 @@ using DATATYPE = float;
 using ACCU_DATATYPE = float;
 
 // 每个cuda thread计算cuda_M * cuda_N 个结果！
-#define cuda_M 4
-#define cuda_N 4
+#define cuda_M 2
+#define cuda_N 2
 #define cuda_K 4
+#define thread_num 128
 
 __global__ void kernel_naive1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
                               int n, int k) {
@@ -58,7 +59,7 @@ __global__ void kernel_naive1(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m,
 
 void matmul_gpu_naive(DATATYPE *dev_a, DATATYPE *dev_b, DATATYPE *dev_c, int m,
                       int n, int k) {
-  uint3 grid = {m * n / (16 * cuda_M * cuda_N) + 1, 1, 1};
-  uint3 block = {16, 1, 1};
+  uint3 grid = {m * n / (thread_num * cuda_M * cuda_N) + 1, 1, 1};
+  uint3 block = {thread_num, 1, 1};
   kernel_naive1<<<grid, block>>>(dev_a, dev_b, dev_c, m, n, k);
 }
