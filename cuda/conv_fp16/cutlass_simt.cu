@@ -38,10 +38,11 @@ using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
 void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
-                                  const half *bias, half *output, int batch,
-                                  int ic, int ih, int iw, int kh, int kw,
-                                  int oc, int pad_h, int pad_w, int stride_h,
-                                  int stride_w, int oh, int ow) {
+                                       const half *bias, half *output,
+                                       int batch, int ic, int ih, int iw,
+                                       int kh, int kw, int oc, int pad_h,
+                                       int pad_w, int stride_h, int stride_w,
+                                       int oh, int ow) {
   auto check = [](cutlass::Status status) {
     if (status != cutlass::Status::kSuccess) {
       printf("不能实施\n");

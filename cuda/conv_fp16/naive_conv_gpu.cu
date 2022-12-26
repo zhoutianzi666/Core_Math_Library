@@ -16,7 +16,8 @@
 
 // __device__ int gpu_nhwc(struct logical_struct shape,
 //                         struct logical_struct index) {
-//   return index.n * shape.h * shape.w * shape.c + index.h * shape.w * shape.c +
+//   return index.n * shape.h * shape.w * shape.c + index.h * shape.w * shape.c
+//   +
 //          index.w * shape.c + index.c;
 // }
 
@@ -56,8 +57,9 @@
 //           oc_i, ic_i, kh_i, kw_i
 //         };
 //         const half *in_ptr = input + gpu_nhwc(input_shape, input_index);
-//         const half *weight_ptr = weight + gpu_nhwc(weight_shape, weight_index);
-//         sum += __half2float(*in_ptr) * __half2float(*weight_ptr);
+//         const half *weight_ptr = weight + gpu_nhwc(weight_shape,
+//         weight_index); sum += __half2float(*in_ptr) *
+//         __half2float(*weight_ptr);
 //       }
 //     }
 //   }
@@ -68,16 +70,19 @@
 //   *out_ptr = __float2half(x * (1.f / (1 + exp(-x))));
 // }
 
-// void my_naive_conv_gpu(const half *input, const half *weight, const half *bias,
-//                        half *output, int batch, int ic, int ih, int iw, int kh,
-//                        int kw, int oc, int pad_h, int pad_w, int stride_h,
-//                        int stride_w, int oh, int ow) {
+// void my_naive_conv_gpu(const half *input, const half *weight, const half
+// *bias,
+//                        half *output, int batch, int ic, int ih, int iw, int
+//                        kh, int kw, int oc, int pad_h, int pad_w, int
+//                        stride_h, int stride_w, int oh, int ow) {
 //   // mma.16,8,8
 //   int onhwc = batch * oh * ow * oc;
 //   uint3 grid = {onhwc / 256, 1, 1};
 //   // 每个block计算256个数字
 //   uint3 block = {256, 1, 1};
 
-//   my_kernel<<<grid, block>>>(input, weight, bias, output, batch, ic, ih, iw, kh,
-//                              kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
+//   my_kernel<<<grid, block>>>(input, weight, bias, output, batch, ic, ih, iw,
+//   kh,
+//                              kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
+//                              ow);
 // }

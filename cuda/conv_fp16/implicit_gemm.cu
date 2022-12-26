@@ -14,15 +14,15 @@
 // using DATATYPE = half;
 // using DATATYPE = half;
 
-
-
 // __device__ int gpu_nhwc_alias(struct logical_struct shape,
 //                         struct logical_struct index) {
-//   return index.n * shape.h * shape.w * shape.c + index.h * shape.w * shape.c +
+//   return index.n * shape.h * shape.w * shape.c + index.h * shape.w * shape.c
+//   +
 //          index.w * shape.c + index.c;
 // }
 
-// __global__ void my_implicit_gemm_kernel(const half *input, const half *weight,
+// __global__ void my_implicit_gemm_kernel(const half *input, const half
+// *weight,
 //                           const half *bias, half *output, int batch, int ic,
 //                           int ih, int iw, int kh, int kw, int oc, int pad_h,
 //                           int pad_w, int stride_h, int stride_w, int oh,
@@ -50,7 +50,8 @@
 //     int kh_i = (k_i % (kh * kw)) / kw;
 //     int kw_i = (k_i % (kh * kw)) % kw;
 //     struct logical_struct weight_index { oc_i, ic_i, kh_i, kw_i };
-//     const half *weight_ptr = weight + gpu_nhwc_alias(weight_shape, weight_index);
+//     const half *weight_ptr = weight + gpu_nhwc_alias(weight_shape,
+//     weight_index);
 
 //     int ih_i = oh_i * stride_h - pad_h + kh_i;
 //     int iw_i = ow_i * stride_w - pad_w + kw_i;
@@ -70,10 +71,11 @@
 //   *out_ptr = __float2half(x * (1.f / (1 + exp(-x))));
 // }
 
-// void my_implicit_gemm_gpu(const half *input, const half *weight, const half *bias,
-//                        half *output, int batch, int ic, int ih, int iw, int kh,
-//                        int kw, int oc, int pad_h, int pad_w, int stride_h,
-//                        int stride_w, int oh, int ow) {
+// void my_implicit_gemm_gpu(const half *input, const half *weight, const half
+// *bias,
+//                        half *output, int batch, int ic, int ih, int iw, int
+//                        kh, int kw, int oc, int pad_h, int pad_w, int
+//                        stride_h, int stride_w, int oh, int ow) {
 //   int M = batch * oh * ow;
 //   int N = oc;
 //   constexpr int blockM = 16;
@@ -83,6 +85,8 @@
 //   // 当前假设threadblock中的每个thread计算一个输出哦！
 //   uint3 block = {blockM, blockN, 1};
 
-//   my_implicit_gemm_kernel<<<grid, block>>>(input, weight, bias, output, batch, ic, ih, iw, kh,
-//                              kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
+//   my_implicit_gemm_kernel<<<grid, block>>>(input, weight, bias, output,
+//   batch, ic, ih, iw, kh,
+//                              kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
+//                              ow);
 // }

@@ -24,20 +24,24 @@ void CUDNN_CHECK(cudnnStatus_t status) {
 
 int main(void) {
   int batch = 1;
-  int ic = 3;
-  int ih = 600;
-  int iw = 1008;
-  int pad_h = 1;
-  int pad_w = 1;
+  int ic = 8;
+  int ih = 60;
+  int iw = 100;
+  int pad_h0 = 0;
+  int pad_h1 = 30;
+  int pad_w0 = 10;
+  int pad_w1 = 4;
   int oc = 16;
   int kh = 3;
   int kw = 3;
   int stride_h = 1;
   int stride_w = 1;
+  int dilation_h = 2;
+  int dilation_w = 2;
 
   // Here is consistent with
-  int oh = (ih + pad_h * 2 - kh) / stride_h + 1;
-  int ow = (iw + pad_w * 2 - kw) / stride_w + 1;
+  int oh = (ih + pad_h0 + pad_h1 - dilation_h * (kh - 1) - 1) / stride_h + 1;
+  int ow = (iw + pad_w0 + pad_w1 - dilation_w * (kw - 1) - 1) / stride_w + 1;
 
   // Note input and weight is in CPU place
   DATATYPE *input, *weight, *residual, *bias;
@@ -66,8 +70,9 @@ int main(void) {
   DATATYPE *dev_input, *dev_weight, *dev_residual, *dev_bias;
   C_DATATYPE *dev_out;
 
-  // ---------------------------this is cuDNN-------------------------------------------------------
-  
+  // ---------------------------this is
+  // cuDNN-------------------------------------------------------
+
   cudnnHandle_t handle_cudnn;
   cudnnCreate(&handle_cudnn);
   cudnnTensorDescriptor_t input_descriptor;
@@ -87,8 +92,8 @@ int main(void) {
   cudnnConvolutionDescriptor_t conv_descriptor;
   CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&conv_descriptor));
   CUDNN_CHECK(cudnnSetConvolution2dDescriptor(
-      conv_descriptor, pad_h, pad_w,  // zero-padding
-      stride_h, stride_w,             // stride
+      conv_descriptor, pad_h0, pad_w0,  // zero-padding
+      stride_h, stride_w,               // stride
       1, 1, CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));
 
   int returnedAlgoCount;
@@ -99,19 +104,20 @@ int main(void) {
 
   size_t workspace_size = 10000000;
   printf("%d\n", returnedAlgoCount);
-  CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(handle_cudnn,
-                                          input_descriptor,
-                                          kernel_descriptor,
-                                          conv_descriptor,
-                                          output_descriptor,
-                                          perfResults[0].algo,
-                                          &workspace_size));
+  CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(
+      handle_cudnn, input_descriptor, kernel_descriptor, conv_descriptor,
+      output_descriptor, perfResults[0].algo, &workspace_size));
   printf("%d\n", workspace_size);
-  std::cout << "perfResults[0]:" << perfResults[0].algo << perfResults[0].status << std::endl;
-  std::cout << "perfResults[1]:" << perfResults[1].algo << perfResults[1].status << std::endl;
-  std::cout << "perfResults[2]:" << perfResults[2].algo << perfResults[2].status << std::endl;
-  std::cout << "perfResults[3]:" << perfResults[3].algo << perfResults[3].status << std::endl;
-  std::cout << "perfResults[4]:" << perfResults[4].algo << perfResults[4].status << std::endl;
+  std::cout << "perfResults[0]:" << perfResults[0].algo << perfResults[0].status
+            << std::endl;
+  std::cout << "perfResults[1]:" << perfResults[1].algo << perfResults[1].status
+            << std::endl;
+  std::cout << "perfResults[2]:" << perfResults[2].algo << perfResults[2].status
+            << std::endl;
+  std::cout << "perfResults[3]:" << perfResults[3].algo << perfResults[3].status
+            << std::endl;
+  std::cout << "perfResults[4]:" << perfResults[4].algo << perfResults[4].status
+            << std::endl;
   cudnnSetConvolutionMathType(conv_descriptor, CUDNN_TENSOR_OP_MATH);
 
   void *workspace = nullptr;
@@ -139,14 +145,43 @@ int main(void) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(dev_bias, bias, oc * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
-  // ---------------------------this is also cuDNN-----------------------------------------------
+  // ---------------------------this is also
+  // cuDNN-----------------------------------------------
   CUDNN_CHECK(cudnnFindConvolutionForwardAlgorithmEx(
       handle_cudnn, input_descriptor, dev_input, kernel_descriptor, dev_weight,
       conv_descriptor, output_descriptor, dev_out, 100, &returnedAlgoCount,
       perfResults, workspace, workspace_size));
   printf("返回的算法个数是：%d\n", returnedAlgoCount);
 
-  // ------------------------cuDNN ends-----------------------------------------------------
+  // ------------------------cuDNN
+  // ends-----------------------------------------------------
+
+  ConvAllParams params;
+  params.batch = batch;
+  params.ic = ic;
+  params.ih = ih;
+  params.iw = iw;
+  params.pad_h0 = pad_h0;
+  params.pad_h1 = pad_h1;
+  params.pad_w0 = pad_w0;
+  params.pad_w1 = pad_w1;
+  params.oc = oc;
+  params.kh = kh;
+  params.kw = kw;
+  params.stride_h = stride_h;
+  params.stride_w = stride_w;
+  params.dilation_h = dilation_h;
+  params.dilation_w = dilation_w;
+
+  // Here is consistent with
+  params.oh = oh;
+  params.ow = ow;
+
+  params.input = dev_input;
+  params.weight = dev_weight;
+  params.residual = nullptr;
+  params.bias = dev_bias;
+  params.output = dev_out;
 
   for (int i = 0; i < WARMUP; i++) {
     //   const float alpha = 1.0f;
@@ -171,11 +206,10 @@ int main(void) {
     //                   iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
     //                   ow);
 
-    cutlass_nhwc_conv_bias_swish(dev_input, dev_weight, dev_bias, dev_out,
-                                 batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-                                 stride_h, stride_w, oh, ow);
+    cutlass_nhwc_conv_bias_swish(params);
 
-    //  cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias, dev_out,
+    //  cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
+    //  dev_out,
     //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     //   stride_h, stride_w, oh, ow);
 
@@ -183,11 +217,11 @@ int main(void) {
     // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     // stride_h, stride_w, oh, ow);
 
-    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias, dev_out,
+    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
+    // dev_out,
     //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     //   stride_h, stride_w, oh, ow);
 
-    
     // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
     // ih, iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
 
@@ -224,11 +258,10 @@ int main(void) {
     //                   iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
     //                   ow);
 
-    cutlass_nhwc_conv_bias_swish(dev_input, dev_weight, dev_bias, dev_out,
-                                 batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-                                 stride_h, stride_w, oh, ow);
+    cutlass_nhwc_conv_bias_swish(params);
 
-    // cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias, dev_out,
+    // cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
+    // dev_out,
     //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     //   stride_h, stride_w, oh, ow);
 
@@ -236,10 +269,11 @@ int main(void) {
     // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     // stride_h, stride_w, oh, ow);
 
-    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias, dev_out,
+    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
+    // dev_out,
     //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     //   stride_h, stride_w, oh, ow);
-    
+
     // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
     // ih,
     //     iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
@@ -274,8 +308,13 @@ int main(void) {
   float *out_cpu_fp32 = (float *)malloc(sizeof(float) * out_size);
   memset(out_cpu_fp32, 0, sizeof(float) * out_size);
 
-  naive_conv_cpu(input, weight, bias, out_cpu_fp32, batch, ic, ih, iw, kh, kw,
-                 oc, pad_h, pad_w, stride_h, stride_w, nullptr);
+  params.input = input;
+  params.weight = weight;
+  params.bias = bias;
+  params.output_cpu_fp32 = out_cpu_fp32;
+  params.residual = nullptr;
+
+  naive_conv_cpu(params);
 
   time2 = (double)clock() / CLOCKS_PER_SEC;
   now = system_clock::now();

@@ -45,12 +45,31 @@ int nhwc(struct logical_struct shape, struct logical_struct index) {
          index.w * shape.c + index.c;
 }
 
-void naive_conv_cpu(const half *input, const half *weight, const half *bias,
-                    float *output, int batch, int ic, int ih, int iw, int kh,
-                    int kw, int oc, int pad_h, int pad_w, int stride_h,
-                    int stride_w, const half *residual) {
-  int oh = (ih + pad_h * 2 - kh) / stride_h + 1;
-  int ow = (iw + pad_w * 2 - kw) / stride_w + 1;
+void naive_conv_cpu(ConvAllParams params) {
+  int batch = params.batch;
+  int ic = params.ic;
+  int ih = params.ih;
+  int iw = params.iw;
+  int pad_h0 = params.pad_h0;
+  int pad_h1 = params.pad_h1;
+  int pad_w0 = params.pad_w0;
+  int pad_w1 = params.pad_w1;
+  int oc = params.oc;
+  int kh = params.kh;
+  int kw = params.kw;
+  int stride_h = params.stride_h;
+  int stride_w = params.stride_w;
+  int dilation_h = params.dilation_h;
+  int dilation_w = params.dilation_w;
+  int oh = params.oh;
+  int ow = params.ow;
+
+  auto input = params.input;
+  auto weight = params.weight;
+  auto residual = params.residual;
+  auto bias = params.bias;
+  auto output = params.output_cpu_fp32;
+
   struct logical_struct input_shape {
     batch, ic, ih, iw
   };
@@ -67,13 +86,13 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
           struct logical_struct output_index {
             bs_i, oc_i, oh_i, ow_i
           };
-          float *out_ptr = output + nchw(output_shape, output_index);
+          float *out_ptr = output + nhwc(output_shape, output_index);
           float sum = 0.f;
 
           for (int kh_i = 0; kh_i < kh; kh_i++) {
             for (int kw_i = 0; kw_i < kw; kw_i++) {
-              int ih_i = oh_i * stride_h - pad_h + kh_i;
-              int iw_i = ow_i * stride_w - pad_w + kw_i;
+              int ih_i = oh_i * stride_h - pad_h0 + kh_i * dilation_h;
+              int iw_i = ow_i * stride_w - pad_w0 + kw_i * dilation_w;
               if (ih_i < 0 || ih_i >= ih) continue;
               if (iw_i < 0 || iw_i >= iw) continue;
 
@@ -84,16 +103,16 @@ void naive_conv_cpu(const half *input, const half *weight, const half *bias,
                 struct logical_struct weight_index {
                   oc_i, ic_i, kh_i, kw_i
                 };
-                const half *in_ptr = input + nchw(input_shape, input_index);
+                const half *in_ptr = input + nhwc(input_shape, input_index);
                 const half *weight_ptr =
-                    weight + nchw(weight_shape, weight_index);
+                    weight + nhwc(weight_shape, weight_index);
                 sum += __half2float(*in_ptr) * __half2float(*weight_ptr);
               }
             }
           }
           if (residual)
-            sum += __half2float(*(residual + nchw(output_shape, output_index)));
-          
+            sum += __half2float(*(residual + nhwc(output_shape, output_index)));
+
           // bias
           sum += __half2float(*(bias + oc_i));
 
