@@ -9,9 +9,10 @@
 
 #include <algorithm>
 
+#include "cutlass/cutlass.h"
+
 #include "cutlass/conv/device/implicit_gemm_convolution.h"
 #include "cutlass/conv/kernel/default_conv2d_fprop.h"
-#include "cutlass/cutlass.h"
 #include "cutlass/epilogue/thread/linear_combination_silu.h"
 
 static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =

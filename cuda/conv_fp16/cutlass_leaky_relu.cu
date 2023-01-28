@@ -7,8 +7,6 @@
 #include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
-using DATATYPE = half;
-
 #include <algorithm>
 
 #include "cutlass/conv/device/implicit_gemm_convolution.h"

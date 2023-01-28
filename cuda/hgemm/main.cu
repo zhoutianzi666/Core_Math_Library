@@ -1,6 +1,5 @@
 
 #include <stdio.h>
-#include <assert.h>
 
 #include <chrono>
 #include <ctime>
@@ -13,55 +12,69 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = float;
-using C_DATATYPE = float;
+using DATATYPE = half;
+using C_DATATYPE = half;
+
+void CUDA_CHECK(cudaError_t status) {
+  if (status != cudaSuccess) {
+    printf("分配paged内存失败\n");
+  }
+}
 
 int main(void) {
-  int m = 1024;
-  int n = 1024;
-  int k = 512;
-
+  int m = 512 * 10;
+  int n = 512 * 10;
+  int k = 512 * 10;
+  // a,b,c is in cpu place!
   DATATYPE *a, *b;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-  assert(status == cudaSuccess);
+  CUDA_CHECK(status);
   status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
-  assert(status == cudaSuccess);
+  CUDA_CHECK(status);
+
   init(a, m * k);
   init(b, k * n);
 
   C_DATATYPE *c;
   status = cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
-  assert(status == cudaSuccess);
+  CUDA_CHECK(status);
   memset(c, 0, sizeof(C_DATATYPE) * m * n);
 
   DATATYPE *dev_a, *dev_b;
   C_DATATYPE *dev_c;
 
+  // init cublas handle
   cublasHandle_t handle;
   cublasCreate(&handle);
 
-  // allocate the memory on the GPU
   double time1 = (double)clock() / CLOCKS_PER_SEC;
   using std::chrono::system_clock;
   system_clock::time_point today = system_clock::now();
 
+  // allocate the memory on the GPU and copy a and b to GPU
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_c, m * n * sizeof(C_DATATYPE));
-
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    //CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
+    const DATATYPE alpha = 1.0f;
+    const DATATYPE beta = 0.0f;
+    // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+     cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+                               n,m,k,
+                               &alpha,
+                               dev_b,n,
+                               dev_a,k,
+                               &beta,
+                               dev_c,n);
     // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEvent_t beg, end;
@@ -70,25 +83,30 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    //CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
-    // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
-    //             dev_a, k, &beta, dev_c, n);
+    const DATATYPE alpha = 1.0f;
+    const DATATYPE beta = 0.0f;
+   // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+                              n,m,k,
+                              &alpha,
+                              dev_b,n,
+                              dev_a,k,
+                              &beta,
+                              dev_c,n);
     // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    //   matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
+    //    matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
+    //   matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
+    //  matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
+    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
   }
 
   cudaEventRecord(end);
   cudaEventSynchronize(end);
   float elapsed_time;
   cudaEventElapsedTime(&elapsed_time, beg, end);
-  
   printf("gpu gemm compute time: %f\n", elapsed_time);
+
   double Gflops = REPEATE * ((float)m * n * k * 2 / 1000000) / elapsed_time;
   printf("Gflops: %5.2f \n", Gflops);
 

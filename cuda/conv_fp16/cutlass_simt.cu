@@ -6,13 +6,12 @@
 #include "cutlass/gemm/device/gemm.h"
 #include "utility.h"
 
-using DATATYPE = half;
-
 #include <algorithm>
+
+#include "cutlass/cutlass.h"
 
 #include "cutlass/conv/device/implicit_gemm_convolution.h"
 #include "cutlass/conv/kernel/default_conv2d_fprop.h"
-#include "cutlass/cutlass.h"
 #include "cutlass/epilogue/thread/linear_combination_silu.h"
 
 static cutlass::conv::IteratorAlgorithm const IteratorAlgorithm =
@@ -43,11 +42,6 @@ void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
                                        int kh, int kw, int oc, int pad_h,
                                        int pad_w, int stride_h, int stride_w,
                                        int oh, int ow) {
-  auto check = [](cutlass::Status status) {
-    if (status != cutlass::Status::kSuccess) {
-      printf("不能实施\n");
-    }
-  };
 
   cutlass::conv::Mode mode = cutlass::conv::Mode::kCrossCorrelation;
 
@@ -70,9 +64,9 @@ void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
   cudaMalloc((void **)&workspace, bytes);
 
   cutlass::Status status = implicit_gemm_op.can_implement(arguments);
-  check(status);
+  CUTLASS_CHECK(status);
   status = implicit_gemm_op.initialize(arguments, workspace);
-  check(status);
+  CUTLASS_CHECK(status);
   status = implicit_gemm_op();
-  check(status);
+  CUTLASS_CHECK(status);
 }

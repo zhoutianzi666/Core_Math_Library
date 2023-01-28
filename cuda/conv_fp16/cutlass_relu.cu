@@ -8,10 +8,12 @@
 
 using DATATYPE = half;
 
-#include "cutlass/conv/device/implicit_gemm_convolution.h"
-#include "cutlass/conv/kernel/default_conv2d_fprop.h"
 #include "cutlass/cutlass.h"
 #include "cutlass/gemm/device/gemm.h"
+
+#include "cutlass/conv/device/implicit_gemm_convolution.h"
+#include "cutlass/conv/kernel/default_conv2d_fprop.h"
+
 
 void check(cutlass::Status status) {
   if (status != cutlass::Status::kSuccess) {
