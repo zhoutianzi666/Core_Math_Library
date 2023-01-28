@@ -5,7 +5,6 @@
 #include <iostream>
 #include <ratio>
 
-#include "cublas_v2.h"
 #define FULL_MASK 0xffffffff
 using DATATYPE = float;
 
