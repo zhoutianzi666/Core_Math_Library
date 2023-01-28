@@ -1,6 +1,6 @@
 
 using DATATYPE = int8_t;
-using C_DATATYPE = int32_t;
+using C_DATATYPE = int8_t;
 
 void init(int8_t *a, int size);
 

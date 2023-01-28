@@ -37,8 +37,14 @@ int32_t diff(const int32_t *c, const int32_t *c_baseline, int n) {
 int32_t diff(const int8_t *c, const int32_t *c_baseline, int n) {
   int32_t max_diff = -1;
   for (int i = 0; i < n; i++) {
-    if (std::abs(c_baseline[i] - c[i]) > max_diff) {
-      max_diff = std::abs(c_baseline[i] - c[i]);
+    int8_t modify_base = c_baseline[i];
+    if (c_baseline[i] >= 127) {
+      modify_base = 127;
+    } else if(c_baseline[i] <= -128) {
+      modify_base = -128;
+    }
+    if (modify_base != c[i]) {
+      return 10000;
     }
   }
   return max_diff;

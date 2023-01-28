@@ -12,9 +12,6 @@
 #define WARMUP 10
 #define REPEATE 10
 
-using DATATYPE = int8_t;
-using C_DATATYPE = int32_t;
-
 void CUDA_CHECK(cudaError_t status) {
   if (status != cudaSuccess) {
     printf("分配paged内存失败\n");

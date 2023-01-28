@@ -4,10 +4,8 @@
 #include "cutlass/cutlass.h"
 #include "cutlass/epilogue/thread/linear_combination_relu.h"
 #include "cutlass/gemm/device/gemm.h"
+#include "utility.h"
 
-
-using DATATYPE = int8_t;
-using C_DATATYPE = int32_t;
 
 // The code section below describes datatype for input, output matrices and computation between
 // elements in input matrices.
