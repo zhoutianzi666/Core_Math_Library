@@ -38,6 +38,7 @@ __global__ void copy(
       fragment[i] = 0;
     }
 
+    //printf("%d\n", fragment.size());
     src_iterator.load(fragment);
     dst_iterator.store(fragment);
 
@@ -77,7 +78,7 @@ int main(void) {
     cudaMemcpy(dev_input, input, input_size * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
     // using Layout = cutlass::layout::PitchLinear;
-    using Layout = cutlass::layout::RowMajor;
+    using Layout = cutlass::layout::ColumnMajor;
     using Element = int;
 
     int const kThreads = 32 * 4;
@@ -89,9 +90,9 @@ int main(void) {
     cutlass::transform::PitchLinearWarpRakedThreadMap<cutlass::PitchLinearShape<32, 128>, 
                                                        kThreads, 
                                                        cutlass::PitchLinearShape<4, 8>, 
-                                                       8>, 
+                                                       4>, 
   
-    8, 
+    4, 
     0>;
   
     typename Iterator::Params dst_params({M});
