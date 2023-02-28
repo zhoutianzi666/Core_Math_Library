@@ -8,6 +8,12 @@ void init(int8_t *a, int size) {
   }
 }
 
+void init(float *a, int size) {
+  for (int i = 0; i < size; i++) {
+    a[i] = rand() % 256 / 256;
+  }
+}
+
 // a : row
 // b : col
 // c: row

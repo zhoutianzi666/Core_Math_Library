@@ -24,19 +24,25 @@ int main(void) {
   int k = 512;
 
   DATATYPE *a, *b;
+  BIAS_DATATYPE *bias;
+
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
   CUDA_CHECK(status);
   status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
   CUDA_CHECK(status);
+  status = cudaMallocHost(&bias, sizeof(BIAS_DATATYPE) * n);
+  CUDA_CHECK(status);
 
   init(a, m * k);
   init(b, k * n);
+  init(bias, k * n);
 
   C_DATATYPE *c;
   cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
   memset(c, 0, sizeof(C_DATATYPE) * m * n);
 
   DATATYPE *dev_a, *dev_b;
+  BIAS_DATATYPE *dev_bias;
   C_DATATYPE *dev_c;
   
   cublasHandle_t handle;
@@ -49,12 +55,15 @@ int main(void) {
  // allocate the memory on the GPU and copy a and b to GPU
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
+  cudaMalloc((void **)&dev_bias, n * sizeof(BIAS_DATATYPE));
   cudaMalloc((void **)&dev_c, m * n * sizeof(C_DATATYPE));
+
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
+  cudaMemcpy(dev_bias, bias, n * sizeof(BIAS_DATATYPE), cudaMemcpyHostToDevice);
 
   for (int i = 0; i < WARMUP; i++) {
-    CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_c, n);
+    CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_bias, dev_c, n);
   }
 
   cudaEvent_t beg, end;
@@ -63,7 +72,7 @@ int main(void) {
   cudaEventRecord(beg);
 
   for (int i = 0; i < REPEATE; i++) {
-    CutlassIgemmNN(m, n, k, dev_a, k, dev_b, k, dev_c, n);
+    CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_bias, dev_c, n);
   }
 
   cudaEventRecord(end);

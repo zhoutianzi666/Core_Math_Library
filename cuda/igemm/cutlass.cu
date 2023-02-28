@@ -10,7 +10,7 @@
 // The code section below describes datatype for input, output matrices and computation between
 // elements in input matrices.
 using ElementAccumulator = int32_t;                 // <- data type of accumulator
-using ElementComputeEpilogue = int32_t;  // <- data type of epilogue operations
+using ElementComputeEpilogue = float;  // <- data type of epilogue operations
 using ElementInputA = DATATYPE;                       // <- data type of elements in input matrix A
 using ElementInputB = DATATYPE;                       // <- data type of elements in input matrix B
 using ElementOutput = C_DATATYPE;                      // <- data type of elements in output matrix D
@@ -59,6 +59,7 @@ using Gemm = cutlass::gemm::device::Gemm<ElementInputA,
 cudaError_t CutlassIgemmNN(int M, int N, int K,
                            DATATYPE const *A, int lda, 
                            DATATYPE const *B,int ldb, 
+                           float const *bias,
                            C_DATATYPE *C, int ldc) {
   cutlass::gemm::GemmCoord problem_size(M, N, K);
 
@@ -72,7 +73,7 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
       problem_size,               
       {(DATATYPE *)A, lda},  
       {(DATATYPE *)B, ldb},  
-      {(C_DATATYPE *)C, ldc},
+      {(DATATYPE *)bias, 0},
       {(C_DATATYPE *)C, ldc},  
       {alpha, beta},                    
       split_k_slices};   
