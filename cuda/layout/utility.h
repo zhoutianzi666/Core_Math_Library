@@ -19,3 +19,5 @@ void cutlass_nhwc_nchw(const half *input, half *output, int batch, int ic, int i
 
 void my_row_col0(half *output, const half *input, int batch, int m, int n);
 void my_row_col1(half *output, const half *input, int batch, int m, int n);
+void cutlass_iter(half *output, const half *input, int batch, int m, int n);
+

@@ -7,6 +7,7 @@
 void init(half *a, int size) {
   for (int i = 0; i < size; i++) {
     a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
+   // a[i] = __float2half(i / 1 );
   }
 }
 

@@ -83,11 +83,14 @@ void cutlass_iter(DATATYPE *output, const DATATYPE *input, int batch, int stride
     
     using Shape1 = cutlass::MatrixShape<tb_x, tb_y>;
     using ThreadMap_smem_w_tmp = cutlass::transform::PitchLinearStripminedThreadMap<Shape, kThreads, 1>;
+    using arrange = cutlass::layout::PitchLinearShape<32, 1>;
     using SmemThreadMap_w = cutlass::transform::TransposePitchLinearThreadMapSimt<ThreadMap_smem_w_tmp>;
+    // using SmemThreadMap_w = cutlass::transform::PitchLinearWarpRakedThreadMap<Shape, kThreads, 
+    // cutlass::layout::PitchLinearShape<1, 32>, 1>;
     using SmemIterator_w = cutlass::transform::threadblock::RegularTileIterator<Shape1, Element, cutlass::layout::RowMajor, 1, SmemThreadMap_w>;
     
     using ThreadMap_smem_read = cutlass::transform::PitchLinearStripminedThreadMap<Shape, kThreads, 1>;
-    using SmemIterator_r = cutlass::transform::threadblock::RegularTileIterator<Shape1, Element, cutlass::layout::RowMajor, 1, ThreadMap_smem_read>;
+    using SmemIterator_r = cutlass::transform::threadblock::RegularTileIterator<Shape1, Element, cutlass::layout::ColumnMajor, 1, ThreadMap_smem_read>;
     
     using Iterator_in = cutlass::transform::threadblock::PredicatedTileIterator<Shape1, Element, Layout, 0, ThreadMap_in>;
     using Iterator_out = cutlass::transform::threadblock::PredicatedTileIterator<Shape1, Element, Layout, 0, ThreadMap_out>;
