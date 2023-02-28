@@ -27,11 +27,11 @@ struct GroupSumsOp {
 
 struct GroupNormNHWCParams {
   // The output buffer. Layout NHWC.
- half* dst;
+ float* dst;
   // The output buffer. Layout NHWC.
  // __half* eleOut;
   // The input buffer. Layout NHWC.
-  half const* srcX;
+  float const* srcX;
   // The input buffer. Layout NHWC.
   // __half const* srcY;
   // The gamma scaling factor.
@@ -46,7 +46,7 @@ struct GroupNormNHWCParams {
   int32_t h, w;
   int32_t c;
   int32_t groups;
-  bool withSwish;
+  bool withSwish = false;
 
   // Precomputed values and parameters to control the execution of the kernels.
 
@@ -81,6 +81,7 @@ __global__ void groupNormNHWCSumKernel(const GroupNormNHWCParams params) {
 
   // The instance in the batch.
   int32_t ni = blockIdx.z;
+
   // The channel loaded by that thread (2 channels per thread for F16x2).
   int32_t ci = blockIdx.x * params.cPerBlock + threadIdx.x * 2;
 
@@ -97,12 +98,14 @@ __global__ void groupNormNHWCSumKernel(const GroupNormNHWCParams params) {
   for (int32_t hwi = hwBegin; hwi < hwEnd; ++hwi) {
     // The offset.
     int64_t offset = static_cast<int64_t>(ni) * params.hwc +
-                     static_cast<int64_t>(hwi) * params.c + ci;
+                     + ci / 32 * params.hw * 32 + 
+                     static_cast<int64_t>(hwi) * 32 + ci % 32;
 
     // Fetch two channels per thread.
     __half2 h2(0, 0);
     if (ci < params.c) {
-      h2 = *reinterpret_cast<__half2 const *>(&params.srcX[offset]);
+      const half* tmp_ptr=(const half*)(params.srcX);
+      h2 = *reinterpret_cast<__half2 const *>(&tmp_ptr[offset]);
     }
 
     // Extract the two half values.
@@ -196,7 +199,7 @@ __global__ void groupNormNHWCScaleKernel(const GroupNormNHWCParams params) {
 
   // Load gamma/beta.
   float2 gammaF2, betaF2;
-  if (ci < params.c) {
+  if (ci < params.c && 0) {
     gammaF2 = __half22float2(*reinterpret_cast<half2 const *>(
         reinterpret_cast<half const *>(params.gamma) + ci));
     betaF2 = __half22float2(*reinterpret_cast<half2 const *>(
@@ -218,12 +221,15 @@ __global__ void groupNormNHWCScaleKernel(const GroupNormNHWCParams params) {
   // Iterate over the activations to compute the sums.
   for (int32_t hwi = hwBegin; hwi < hwEnd; ++hwi) {
     // The src/dst offset.
-    int64_t offset = (int64_t)ni * params.hwc + hwi * params.c + ci;
+    int64_t offset = static_cast<int64_t>(ni) * params.hwc +
+                     + ci / 32 * params.hw * 32 + 
+                     static_cast<int64_t>(hwi) * 32 + ci % 32;
 
     // Fetch two channels per thread.
     __half2 h2(0, 0);
     if (ci < params.c) {
-      h2 = *reinterpret_cast<__half2 const *>(&params.srcX[offset]);
+      const half* tmp_ptr=(const half*)(params.srcX);
+      h2 = *reinterpret_cast<__half2 const *>(&tmp_ptr[offset]);
     }
 
     // Extract the two half values.
@@ -234,8 +240,8 @@ __global__ void groupNormNHWCScaleKernel(const GroupNormNHWCParams params) {
     f2.y = (f2.y - mean) * invStdDev;
 
     // Scale by gamma and add beta.
-    f2.x = gammaF2.x * f2.x + betaF2.x;
-    f2.y = gammaF2.y * f2.y + betaF2.y;
+    // f2.x = gammaF2.x * f2.x + betaF2.x;
+    // f2.y = gammaF2.y * f2.y + betaF2.y;
 
     // Apply Swish if needed.
     if (params.withSwish) {
@@ -245,7 +251,7 @@ __global__ void groupNormNHWCScaleKernel(const GroupNormNHWCParams params) {
 
     // Store the scaled values.
     if (ci < params.c) {
-      *reinterpret_cast<__half2 *>(&params.dst[offset]) = __float22half2_rn(f2);
+      *reinterpret_cast<__half2 *>(((float*)(params.dst) + offset / 2)) = __float22half2_rn(f2);
     }
   }
 }
@@ -283,23 +289,28 @@ void groupnorm_gpu(half *output, const half *input, int n, int c, int h,
     int w, int groups) {
 
         GroupNormNHWCParams params;
-        params.srcX = input;
-        cudaMalloc((void **)&(params.redBuffer), sizeof(float) * n * groups);
+        params.srcX = (float*)input;
+        cudaMalloc((void **)&(params.redBuffer), sizeof(float) * n * groups * 2);
+        cudaMemset(params.redBuffer,
+          0,
+          2 * sizeof(float) *  n * groups);
         params.cPerBlock = 320;
         params.n = n;
         params.c = c;
         params.h = h;
         params.w = w;
         params.hw = h * w;
+        params.hwc = h*w*c;
         params.hwPerBlock = h * w;
         params.groupsPerBlock = 32;
         params.groups = groups;
         params.cPerGroup = c / groups;
         params.invHWC = 1.f / (h * w * params.cPerGroup);
         params.eps = 0.00005f;
-        params.dst = output;
+        params.dst = (float*)output;
         groupNormNCHW32Sum(params);
         groupNormNCHW32Scale(params);
+        cudaFree(params.redBuffer);
 }
 
 
