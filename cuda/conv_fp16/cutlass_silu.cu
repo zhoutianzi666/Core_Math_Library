@@ -22,8 +22,9 @@ using EpilogueOp = cutlass::epilogue::thread::LinearCombinationSilu<
     cutlass::half_t,  // Data type of output matrix.
     8,
     float,   // Data type of accumulator
-    float>;  // Data type for alpha/beta in linear combination
-
+    float,
+    cutlass::epilogue::thread::ScaleType::NoBetaScaling>;  // Data type for alpha/beta in linear combination
+// 因为是直接加上的bias，bias不需要beta放缩，所以我上面就直接用NoBetaScaling了。
 using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     cutlass::half_t, cutlass::layout::TensorNHWC, cutlass::half_t,
     cutlass::layout::TensorNHWC, cutlass::half_t, cutlass::layout::TensorNHWC,
@@ -63,10 +64,12 @@ void cutlass_nhwc_conv_bias_swish(ConvAllParams params) {
   auto bias = params.bias;
   auto output = params.output;
 
+  int groups = 1;
+
   cutlass::conv::Conv2dProblemSize problem_size(
       {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h0, pad_h1, pad_w0, pad_w1},
       {stride_h, stride_w}, {dilation_h, dilation_w}, {batch, oh, ow, oc}, mode,
-      1, 1);
+      1, groups);
 
   typename ImplicitGemm::Arguments arguments{
       problem_size,
@@ -75,12 +78,15 @@ void cutlass_nhwc_conv_bias_swish(ConvAllParams params) {
       {(cutlass::half_t *)bias, {0, 0, 0}},
       {(cutlass::half_t *)output, {oc, oc * ow, oc * ow * oh}},
       {1.f, 1.f},
-      cutlass::conv::SplitKMode::kParallel};
+      cutlass::conv::SplitKMode::kSerial};
+      // cutlass::conv::SplitKMode::kParallel 也可以用啊，但是啥时候会快呢？
 
   ImplicitGemm implicit_gemm_op;
   size_t bytes = implicit_gemm_op.get_workspace_size(arguments);
+  // 其实bytes基本都是0，因为是kSerial。
+  assert(bytes == 0);
   void *workspace;
-  cudaMalloc((void **)&workspace, bytes);
+  //cudaMalloc(&workspace, bytes);
 
   cutlass::Status status = implicit_gemm_op.can_implement(arguments);
   CUTLASS_CHECK(status);
@@ -88,4 +94,6 @@ void cutlass_nhwc_conv_bias_swish(ConvAllParams params) {
   CUTLASS_CHECK(status);
   status = implicit_gemm_op();
   CUTLASS_CHECK(status);
+  // cudaFree还蛮费时间的！
+  //cudaFree(&workspace, bytes);
 }

@@ -11,7 +11,7 @@
 #include "utility.h"
 
 #define WARMUP 10
-#define REPEATE 10
+#define REPEATE 100
 
 using DATATYPE = half;
 using C_DATATYPE = half;
@@ -24,20 +24,20 @@ void CUDNN_CHECK(cudnnStatus_t status) {
 
 int main(void) {
   int batch = 1;
-  int ic = 8;
-  int ih = 60;
-  int iw = 100;
-  int pad_h0 = 0;
-  int pad_h1 = 30;
-  int pad_w0 = 10;
-  int pad_w1 = 4;
-  int oc = 16;
+  int ic = 32;
+  int ih = 320;
+  int iw = 320;
+  int pad_h0 = 1;
+  int pad_h1 = 1;
+  int pad_w0 = 1;
+  int pad_w1 = 1;
+  int oc = 64;
   int kh = 3;
   int kw = 3;
-  int stride_h = 1;
-  int stride_w = 1;
-  int dilation_h = 2;
-  int dilation_w = 2;
+  int stride_h = 2;
+  int stride_w = 2;
+  int dilation_h = 1;
+  int dilation_w = 1;
 
   // Here is consistent with
   int oh = (ih + pad_h0 + pad_h1 - dilation_h * (kh - 1) - 1) / stride_h + 1;
