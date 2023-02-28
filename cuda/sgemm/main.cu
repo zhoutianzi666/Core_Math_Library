@@ -10,28 +10,39 @@
 #include "cublas_v2.h"
 #include "utility.h"
 
-#define WARMUP 10
-#define REPEATE 10
+#define WARMUP 0
+#define REPEATE 1
 
 using DATATYPE = float;
 using C_DATATYPE = float;
 
 int main(void) {
-  int m = 1024;
-  int n = 1024;
-  int k = 512;
+  int m = 5;
+  int n = 5;
+  int k = 9; 
+  cudaSetDevice(3);
 
   DATATYPE *a, *b;
-  cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-  assert(status == cudaSuccess);
-  status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
-  assert(status == cudaSuccess);
+  a = (DATATYPE *)malloc(sizeof(DATATYPE) * m * k);
+  b = (DATATYPE *)malloc(sizeof(DATATYPE) * k * n);
+  assert(a);
+  assert(b);
   init(a, m * k);
   init(b, k * n);
 
+for (int i = 0; i < m * k ;i++)
+{
+  a[i] = i;
+}
+
+for (int i = 0; i < k * n;i++)
+{
+  b[i] = i;
+}
+
   C_DATATYPE *c;
-  status = cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
-  assert(status == cudaSuccess);
+  c = (C_DATATYPE *)malloc(sizeof(C_DATATYPE) * m * n);
+  assert(c);
   memset(c, 0, sizeof(C_DATATYPE) * m * n);
 
   DATATYPE *dev_a, *dev_b;
@@ -116,9 +127,9 @@ int main(void) {
   printf("max_diff: %f\n", diff(c, c_cpu_fp32, m * n));
 
   cudaDeviceReset();
-  cudaFreeHost(a);
-  cudaFreeHost(b);
-  cudaFreeHost(c);
+  free(a);
+  free(b);
+  free(c);
   free(c_cpu_fp32);
   return 0;
 }

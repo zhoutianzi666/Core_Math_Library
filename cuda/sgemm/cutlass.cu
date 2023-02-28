@@ -49,7 +49,7 @@ cudaError_t CutlassSgemmNN(int M, int N, int K, DATATYPE alpha,
                                                   cutlass::gemm::GemmShape<1, 1, 1>,
                                                   EpilogueOutputOp,
                                                   cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
-                                                  2 >;
+                                                  2, 1, 1 >;
   // using CutlassGemm =
   //     cutlass::gemm::device::Gemm<DATATYPE,      // Data-type of A matrix
   //                                 ColumnMajor,   // Layout of A matrix
