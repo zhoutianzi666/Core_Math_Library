@@ -22,9 +22,9 @@ void CUDA_CHECK(cudaError_t status) {
 }
 
 int main(void) {
-  int m = 512 * 10;
-  int n = 512 * 10;
-  int k = 512 * 10;
+  int m = 512;
+  int n = 512;
+  int k = 512;
   // a,b,c is in cpu place!
   DATATYPE *a, *b;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
@@ -61,14 +61,14 @@ int main(void) {
   for (int i = 0; i < WARMUP; i++) {
     const DATATYPE alpha = 1.0f;
     const DATATYPE beta = 0.0f;
-    // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-     cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
-                               n,m,k,
-                               &alpha,
-                               dev_b,n,
-                               dev_a,k,
-                               &beta,
-                               dev_c,n);
+    CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    //  cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+    //                            n,m,k,
+    //                            &alpha,
+    //                            dev_b,n,
+    //                            dev_a,k,
+    //                            &beta,
+    //                            dev_c,n);
     // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
@@ -85,14 +85,14 @@ int main(void) {
   for (int i = 0; i < REPEATE; i++) {
     const DATATYPE alpha = 1.0f;
     const DATATYPE beta = 0.0f;
-   // CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
-                              n,m,k,
-                              &alpha,
-                              dev_b,n,
-                              dev_a,k,
-                              &beta,
-                              dev_c,n);
+   CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    // cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
+    //                           n,m,k,
+    //                           &alpha,
+    //                           dev_b,n,
+    //                           dev_a,k,
+    //                           &beta,
+    //                           dev_c,n);
     // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     //   matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
     //    matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
