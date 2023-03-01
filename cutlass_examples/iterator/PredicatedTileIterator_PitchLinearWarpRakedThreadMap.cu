@@ -58,7 +58,7 @@ __global__ void copy(
 }
 
 
-int main(void) {
+int main1111(void) {
   int M = 32;
   int N = 128;
 
