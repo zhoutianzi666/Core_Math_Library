@@ -1,6 +1,7 @@
 #pragma once
 #include <cudnn_v8.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include <chrono>
 #include <ctime>
@@ -24,18 +25,18 @@ void CUDNN_CHECK(cudnnStatus_t status) {
 
 int main(void) {
   int batch = 1;
-  int ic = 32;
-  int ih = 320;
-  int iw = 320;
+  int ic = 3;
+  int ih = 240;
+  int iw = 240;
   int pad_h0 = 1;
   int pad_h1 = 1;
   int pad_w0 = 1;
   int pad_w1 = 1;
-  int oc = 64;
+  int oc = 32;
   int kh = 3;
   int kw = 3;
-  int stride_h = 2;
-  int stride_w = 2;
+  int stride_h = 1;
+  int stride_w = 1;
   int dilation_h = 1;
   int dilation_w = 1;
 
@@ -49,10 +50,16 @@ int main(void) {
   int weight_size = oc * ic * kh * kw;
   int output_size = batch * oc * oh * ow;
 
-  cudaError_t status = cudaMallocHost(&input, sizeof(DATATYPE) * input_size);
-  status = cudaMallocHost(&weight, sizeof(DATATYPE) * weight_size);
-  status = cudaMallocHost(&bias, sizeof(DATATYPE) * oc);
-  status = cudaMallocHost(&residual, sizeof(DATATYPE) * output_size);
+  cudaError_t status ;
+  input = (DATATYPE *)malloc(sizeof(DATATYPE) * input_size);
+  weight = (DATATYPE *)malloc(sizeof(DATATYPE) * weight_size);
+  bias = (DATATYPE *)malloc(sizeof(DATATYPE) * oc);
+  residual = (DATATYPE *)malloc(sizeof(DATATYPE) * output_size);
+  assert(input);
+  assert(weight);
+  assert(bias);
+  assert(residual);
+
   init(input, input_size);
   init(weight, weight_size);
   init(residual, output_size);
@@ -62,7 +69,7 @@ int main(void) {
   // out is used to store the result form dev_out
   C_DATATYPE *out_from_dev;
   int out_size = batch * oc * oh * ow;
-  cudaMallocHost(&out_from_dev, sizeof(C_DATATYPE) * out_size);
+  out_from_dev = (C_DATATYPE*)malloc(sizeof(C_DATATYPE) * out_size);
   memset(out_from_dev, 0, sizeof(C_DATATYPE) * out_size);
 
   // dev_input is from weight
@@ -207,6 +214,7 @@ int main(void) {
     //                   ow);
 
     cutlass_nhwc_conv_bias_swish(params);
+    //cutlass_nhwc_conv_bias_swish_simt(params);
 
     //  cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
     //  dev_out,
@@ -217,7 +225,7 @@ int main(void) {
     // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     // stride_h, stride_w, oh, ow);
 
-    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
+    //cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
     // dev_out,
     //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     //   stride_h, stride_w, oh, ow);
@@ -259,6 +267,7 @@ int main(void) {
     //                   ow);
 
     cutlass_nhwc_conv_bias_swish(params);
+    //cutlass_nhwc_conv_bias_swish_simt(params);
 
     // cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
     // dev_out,
@@ -325,9 +334,9 @@ int main(void) {
   printf("max_diff: %f\n", diff(out_from_dev, out_cpu_fp32, out_size));
 
   cudaDeviceReset();
-  cudaFreeHost(input);
-  cudaFreeHost(weight);
-  cudaFreeHost(out_from_dev);
+  free(input);
+  free(weight);
+  free(out_from_dev);
   free(out_cpu_fp32);
   return 0;
 }

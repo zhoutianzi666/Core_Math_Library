@@ -33,7 +33,7 @@ using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
     cutlass::gemm::GemmShape<16, 8, 8>, EpilogueOp,
     cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>, 2,
     cutlass::arch::OpMultiplyAdd, IteratorAlgorithm,
-    cutlass::conv::StrideSupport::kUnity, 8, 8>::Kernel;
+    cutlass::conv::StrideSupport::kUnity, 1, 1>::Kernel;
 
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;

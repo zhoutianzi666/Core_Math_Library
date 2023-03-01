@@ -36,17 +36,35 @@ using Conv2dFpropKernel = typename cutlass::conv::kernel::DefaultConv2dFprop<
 using ImplicitGemm =
     cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
-void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
-                                       const half *bias, half *output,
-                                       int batch, int ic, int ih, int iw,
-                                       int kh, int kw, int oc, int pad_h,
-                                       int pad_w, int stride_h, int stride_w,
-                                       int oh, int ow) {
+void cutlass_nhwc_conv_bias_swish_simt(ConvAllParams params) {
+
+    int batch = params.batch;
+    int ih = params.ih;
+    int iw = params.iw;
+    int ic = params.ic;
+    int oc = params.oc;
+    int kh = params.kh;
+    int kw = params.kw;
+    int pad_h0 = params.pad_h0;
+    int pad_h1 = params.pad_h1;
+    int pad_w0 = params.pad_w0;
+    int pad_w1 = params.pad_w1;
+    int stride_h = params.stride_h;
+    int stride_w = params.stride_w;
+    int dilation_h = params.dilation_h;
+    int dilation_w = params.dilation_w;
+    
+    int oh = params.oh;
+    int ow = params.ow;
+    auto input = params.input;
+    auto weight = params.weight;
+    auto bias = params.bias;
+    auto output = params.output;
 
   cutlass::conv::Mode mode = cutlass::conv::Mode::kCrossCorrelation;
 
   cutlass::conv::Conv2dProblemSize problem_size(
-      {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h, pad_h, pad_w, pad_w},
+      {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h0, pad_h1, pad_w0, pad_w1},
       {stride_h, stride_w}, {1, 1}, {batch, oh, ow, oc}, mode, 1);
 
   typename ImplicitGemm::Arguments arguments{

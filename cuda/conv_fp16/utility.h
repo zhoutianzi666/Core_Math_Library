@@ -78,9 +78,4 @@ void my_implicit_gemm_gpu(const half *input, const half *weight,
                           int ow);
 void cutlass_nhwc_conv_bias_leaky_relu(ConvAllParams params);
 
-void cutlass_nhwc_conv_bias_swish_simt(const half *input, const half *weight,
-                                       const half *bias, half *output,
-                                       int batch, int ic, int ih, int iw,
-                                       int kh, int kw, int oc, int pad_h,
-                                       int pad_w, int stride_h, int stride_w,
-                                       int oh, int ow);
+void cutlass_nhwc_conv_bias_swish_simt(ConvAllParams params);
