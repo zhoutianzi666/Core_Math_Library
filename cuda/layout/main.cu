@@ -14,9 +14,9 @@ using DATATYPE = half;
 
 int main(void) {
   int batch = 1;
-  int ic = 32;
+  int ic = 3200;
   int ih = 1;
-  int iw = 32;
+  int iw = 3200;
   // Note input is in CPU place
   DATATYPE *input;
   int input_size = batch * ic * ih * iw;
@@ -49,8 +49,9 @@ int main(void) {
     //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
     //cudaMemcpy(dev_out, dev_input, sizeof(half) * out_size, cudaMemcpyDeviceToDevice);
     //my_row_col0(dev_out, dev_input, batch, ic, ih * iw);
-    //my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
-    cutlass_iter(dev_out, dev_input, batch, ic, ih * iw);
+    my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
+    //my_copy(dev_out, dev_input, batch, ic, ih * iw);
+    //cutlass_iter(dev_out, dev_input, batch, ic, ih * iw);
   }
 
   cudaEvent_t beg, end;
@@ -64,8 +65,9 @@ int main(void) {
     //cutlass_nhwc_nchw(dev_input, dev_out, batch, ic, ih, iw);
     // cudaMemcpy(dev_out, dev_input, sizeof(half) * out_size, cudaMemcpyDeviceToDevice);
     //my_row_col0(dev_out, dev_input, batch, ic, ih * iw);
-    //my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
-    cutlass_iter(dev_out, dev_input, batch, ic, ih * iw);
+    my_row_col1(dev_out, dev_input, batch, ic, ih * iw);
+    //my_copy(dev_out, dev_input, batch, ic, ih * iw);
+    //cutlass_iter(dev_out, dev_input, batch, ic, ih * iw);
   }
 
   cudaEventRecord(end);
@@ -87,8 +89,8 @@ int main(void) {
   today = system_clock::now();
 
   // results calculated in cpu is always fp32
-  half *out_cpu_fp16 = (half *)malloc(sizeof(half) * out_size);
-  memset(out_cpu_fp16, 0, sizeof(half) * out_size);
+  DATATYPE *out_cpu_fp16 = (DATATYPE *)malloc(sizeof(DATATYPE) * out_size);
+  memset(out_cpu_fp16, 0, sizeof(DATATYPE) * out_size);
 
   naive_nchw_nhwc_cpu(input, out_cpu_fp16, batch, ic, ih, iw);
   //naive_nhwc_nchw_cpu(input, out_cpu_fp16, batch, ic, ih, iw);

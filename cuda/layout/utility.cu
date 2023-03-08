@@ -11,6 +11,12 @@ void init(half *a, int size) {
   }
 }
 
+void init(int *a, int size) {
+  for (int i = 0; i < size; i++) {
+    a[i] = rand() % 9999;
+  }
+}
+
 float diff(const half *c, const half *c_baseline, int n) {
   float max_diff = -1.;
   for (int i = 0; i < n; i++) {
@@ -55,6 +61,8 @@ void naive_nchw_nhwc_cpu(const half *input, half *output, int batch, int ic,
           };
           *(output + nhwc(output_shape, output_index)) =
               *(input + nchw(input_shape, input_index));
+          // *(output + nchw(input_shape, input_index)) =
+          //     *(input + nchw(input_shape, input_index));
         }
       }
     }
