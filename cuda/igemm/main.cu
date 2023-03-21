@@ -35,7 +35,7 @@ int main(void) {
 
   init(a, m * k);
   init(b, k * n);
-  init(bias, k * n);
+  init(bias, n);
 
   C_DATATYPE *c;
   cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
@@ -62,16 +62,20 @@ int main(void) {
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_bias, bias, n * sizeof(BIAS_DATATYPE), cudaMemcpyHostToDevice);
 
-  for (int i = 0; i < WARMUP; i++) {
-    CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_bias, dev_c, n);
-  }
-
   cudaEvent_t beg, end;
   cudaEventCreate(&beg);
   cudaEventCreate(&end);
   cudaEventRecord(beg);
 
-  for (int i = 0; i < REPEATE; i++) {
+  for (int i = 0; i < WARMUP + REPEATE; i++) {
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+
+    if (i == WARMUP) {
+      cudaEventCreate(&beg);
+      cudaEventCreate(&end);
+      cudaEventRecord(beg);
+    }
     CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_bias, dev_c, n);
   }
 
@@ -93,23 +97,27 @@ int main(void) {
 
   time1 = (double)clock() / CLOCKS_PER_SEC;
   today = system_clock::now();
+  
 
-  int32_t *c_cpu_int32 = (int32_t *)malloc(sizeof(float) * m * n);
-  memset(c_cpu_int32, 0, sizeof(int32_t) * m * n);
-  naive_gemm_cpu(a, b, c_cpu_int32, m, n, k);
+  // 这个是CPU上的baseline的数据类型！
+  // 输出要么是fp32，要么是int32！
+  using C_base_DATATYPE = float;
+  C_base_DATATYPE *c_cpu_32 = (C_base_DATATYPE *)malloc(sizeof(C_base_DATATYPE) * m * n);
+  memset(c_cpu_32, 0, sizeof(C_base_DATATYPE) * m * n);
+  naive_gemm_cpu(a, b, c_cpu_32, m, n, k, bias);
 
   time2 = (double)clock() / CLOCKS_PER_SEC;
   now = system_clock::now();
   ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
   std::cout << "cpu time:" << ts.count() / 1000.0 << "ms" << std::endl;
   printf("cpu time:%lf\n", double(time2 - time1) * 1000);
-
-  printf("max_diff: %d\n", diff(c, c_cpu_int32, m * n));
+  
+  std::cout << "max_diff:" << diff(c, c_cpu_32, m * n)  << std::endl;
 
   cudaDeviceReset();
   cudaFreeHost(a);
   cudaFreeHost(b);
   cudaFreeHost(c);
-  free(c_cpu_int32);
+  free(c_cpu_32);
   return 0;
 }

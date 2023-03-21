@@ -13,7 +13,7 @@ using ElementAccumulator = int32_t;                 // <- data type of accumulat
 using ElementComputeEpilogue = float;  // <- data type of epilogue operations
 using ElementInputA = DATATYPE;                       // <- data type of elements in input matrix A
 using ElementInputB = DATATYPE;                       // <- data type of elements in input matrix B
-using ElementOutput = C_DATATYPE;                      // <- data type of elements in output matrix D
+using ElementOutput = float;                      // <- data type of elements in output matrix D
 
 using LayoutInputA = cutlass::layout::RowMajor;
 using LayoutInputB = cutlass::layout::ColumnMajor;
@@ -63,17 +63,18 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
                            C_DATATYPE *C, int ldc) {
   cutlass::gemm::GemmCoord problem_size(M, N, K);
 
-  // C = alpha * AB + beta * C
+  // C = alpha * AB + beta * bias
   ElementComputeEpilogue alpha = ElementComputeEpilogue(1);
-  ElementComputeEpilogue beta = ElementComputeEpilogue(0);
+  ElementComputeEpilogue beta = ElementComputeEpilogue(1);
 
   // Split K dimension into 1 partitions
   int split_k_slices = 1;
+  // 下面 BIAS_DATATYPE 和 C_DATATYPE我看估计必须等相等的！
   typename Gemm::Arguments arguments{
       problem_size,               
       {(DATATYPE *)A, lda},  
       {(DATATYPE *)B, ldb},  
-      {(DATATYPE *)bias, 0},
+      {(BIAS_DATATYPE *)bias, 0},
       {(C_DATATYPE *)C, ldc},  
       {alpha, beta},                    
       split_k_slices};   
