@@ -26,21 +26,24 @@ int main(void) {
   int n = 512;
   int k = 512;
   // a,b,c is in cpu place!
-  DATATYPE *a, *b;
+  DATATYPE *a, *b, *broadcast;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
   CUDA_CHECK(status);
   status = cudaMallocHost(&b, sizeof(DATATYPE) * k * n);
   CUDA_CHECK(status);
+  status = cudaMallocHost(&broadcast, sizeof(DATATYPE) * n);
+  CUDA_CHECK(status);
 
   init(a, m * k);
   init(b, k * n);
+  init(broadcast, n);
 
   C_DATATYPE *c;
   status = cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
   CUDA_CHECK(status);
   memset(c, 0, sizeof(C_DATATYPE) * m * n);
 
-  DATATYPE *dev_a, *dev_b;
+  DATATYPE *dev_a, *dev_b, *dev_broadcast;
   C_DATATYPE *dev_c;
 
   // init cublas handle
@@ -54,38 +57,29 @@ int main(void) {
   // allocate the memory on the GPU and copy a and b to GPU
   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_b, k * n * sizeof(DATATYPE));
+  cudaMalloc((void **)&dev_broadcast, n * sizeof(DATATYPE));
   cudaMalloc((void **)&dev_c, m * n * sizeof(C_DATATYPE));
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-
-  for (int i = 0; i < WARMUP; i++) {
-    const DATATYPE alpha = 1.0f;
-    const DATATYPE beta = 0.0f;
-    CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    //  cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
-    //                            n,m,k,
-    //                            &alpha,
-    //                            dev_b,n,
-    //                            dev_a,k,
-    //                            &beta,
-    //                            dev_c,n);
-    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_mma(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_wmma(dev_a, dev_b, dev_c, m, n, k);
-  }
+  cudaMemcpy(dev_broadcast, broadcast, n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
   cudaEvent_t beg, end;
-  cudaEventCreate(&beg);
-  cudaEventCreate(&end);
-  cudaEventRecord(beg);
 
-  for (int i = 0; i < REPEATE; i++) {
+  for (int i = 0; i < REPEATE + REPEATE; i++) {
+
+
+    if (i == WARMUP) {
+      cudaEventCreate(&beg);
+      cudaEventCreate(&end);
+      cudaEventRecord(beg);
+    }
+
     const DATATYPE alpha = 1.0f;
     const DATATYPE beta = 0.0f;
-   CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+
+    GemmWithBroadcast(m, n, k, alpha, dev_a, k, dev_b, n, beta, dev_c, n, dev_broadcast);
+
+    //CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
     //                           n,m,k,
     //                           &alpha,
@@ -123,7 +117,7 @@ int main(void) {
 
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
-  naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k);
+  naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, broadcast);
 
   time2 = (double)clock() / CLOCKS_PER_SEC;
   now = system_clock::now();

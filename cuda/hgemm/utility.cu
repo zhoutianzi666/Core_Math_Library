@@ -5,7 +5,7 @@
 void init(half *a, int size) {
   for (int i = 0; i < size; i++) {
     a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
-    a[i] = __float2half((rand() % 9999) / 10000.0);
+    a[i] = __float2half((rand() % 9999) / 10000.0 - 0.5);
     //a[i] = __float2half((rand() % 9999) / 10000.0 * 2);
   }
 }
@@ -29,14 +29,18 @@ void naive_gemm_cpu(const float *a, const float *b, float *c_cpu_fp32, int m,
 }
 
 void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
-                    int n, int k) {
+                    int n, int k, const half *broadcast) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       double sum = 0.f;
       for (int ii = 0; ii < k; ii++) {
-        sum += __half2float(a[i * k + ii]) * __half2float(b[ii * n + j]);
+        sum += (float)(a[i * k + ii]) * (float)(b[ii * n + j]);
       }
-      c_cpu_fp32[i * n + j] = sum;
+      if(broadcast)
+      {
+        sum *= (float)broadcast[j];
+      }
+      c_cpu_fp32[i * n + j] = sum > 0.f ? sum : 0.f;
     }
   }
 }
