@@ -1,6 +1,6 @@
 
 using DATATYPE = int8_t;
-using BIAS_DATATYPE = float;
+using BROADCAST_DATATYPE = float;
 using C_DATATYPE = float;
 
 void init(int8_t *a, int size);

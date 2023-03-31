@@ -69,12 +69,14 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
 
   // Split K dimension into 1 partitions
   int split_k_slices = 1;
-  // 下面 BIAS_DATATYPE 和 C_DATATYPE我看估计必须等相等的！
+  // 下面 BROADCAST_DATATYPE 和 C_DATATYPE我看估计必须等相等的！
+  // 必须的啊，因为这个矩阵乘法做的操作是 C = alpha * AB + beta * D
+  // 这个C和D的数据类型可以不一样吗？
   typename Gemm::Arguments arguments{
       problem_size,               
       {(DATATYPE *)A, lda},  
       {(DATATYPE *)B, ldb},  
-      {(BIAS_DATATYPE *)bias, 0},
+      {(BROADCAST_DATATYPE *)bias, 0},
       {(C_DATATYPE *)C, ldc},  
       {alpha, beta},                    
       split_k_slices};   
