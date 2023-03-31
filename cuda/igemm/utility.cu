@@ -5,7 +5,7 @@
 
 void init(int8_t *a, int size) {
   for (int i = 0; i < size; i++) {
-    a[i] = rand() % 4;
+    a[i] = rand() % 8 - 4;
   }
 }
 
@@ -20,21 +20,21 @@ void init(float *a, int size) {
 // c: row
 template <typename T>
 void naive_gemm_cpu(const int8_t *a, const int8_t *b, T *c_cpu, int m,
-                    int n, int k, const T* c_bias) {
+                    int n, int k, const T* broadcast) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       T sum = 0;
       for (int ii = 0; ii < k; ii++) {
         sum += a[i * k + ii] * b[ii + j * k];
       }
-      sum += c_bias[j];
-      c_cpu[i * n + j] = sum;
+      sum += broadcast[j];
+      c_cpu[i * n + j] = sum ;
     }
   }
 }
 
-template void naive_gemm_cpu(const int8_t *a, const int8_t *b, int32_t *c_cpu, int m, int n, int k, const int32_t* c_bias);
-template void naive_gemm_cpu(const int8_t *a, const int8_t *b, float *c_cpu, int m, int n, int k, const float* c_bias);
+template void naive_gemm_cpu(const int8_t *a, const int8_t *b, int32_t *c_cpu, int m, int n, int k, const int32_t* broadcast);
+template void naive_gemm_cpu(const int8_t *a, const int8_t *b, float *c_cpu, int m, int n, int k, const float* broadcast);
 
 
 int32_t diff(const int32_t *c, const int32_t *c_baseline, int n) {

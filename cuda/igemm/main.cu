@@ -19,9 +19,9 @@ void CUDA_CHECK(cudaError_t status) {
 }
 
 int main(void) {
-  int m = 512;
-  int n = 512;
-  int k = 512;
+  int m = 512 * 2;
+  int n = 512 * 1;
+  int k = 512 * 3;
 
   DATATYPE *a, *b;
   BROADCAST_DATATYPE *broadcast;
@@ -77,6 +77,8 @@ int main(void) {
       cudaEventRecord(beg);
     }
     CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
+    // A是行存储，B是列存储，C是行存储
+    //GemmWithBroadcast(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
   }
 
   cudaEventRecord(end);

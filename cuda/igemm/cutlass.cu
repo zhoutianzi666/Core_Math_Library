@@ -10,10 +10,10 @@
 // The code section below describes datatype for input, output matrices and computation between
 // elements in input matrices.
 using ElementAccumulator = int32_t;                 // <- data type of accumulator
-using ElementComputeEpilogue = float;  // <- data type of epilogue operations
+using ElementComputeEpilogue = C_DATATYPE;  // <- data type of epilogue operations
 using ElementInputA = DATATYPE;                       // <- data type of elements in input matrix A
 using ElementInputB = DATATYPE;                       // <- data type of elements in input matrix B
-using ElementOutput = float;                      // <- data type of elements in output matrix D
+using ElementOutput = C_DATATYPE;                      // <- data type of elements in output matrix D
 
 using LayoutInputA = cutlass::layout::RowMajor;
 using LayoutInputB = cutlass::layout::ColumnMajor;
@@ -61,7 +61,7 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
                            DATATYPE const *B,int ldb, 
                            float const *bias,
                            C_DATATYPE *C, int ldc) {
-  cutlass::gemm::GemmCoord problem_size(M, N, K);
+  cutlass::gemm::GemmCoord problem_size(N, M, K);
 
   // C = alpha * AB + beta * bias
   ElementComputeEpilogue alpha = ElementComputeEpilogue(1);
@@ -73,9 +73,9 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
   // 必须的啊，因为这个矩阵乘法做的操作是 C = alpha * AB + beta * D
   // 这个C和D的数据类型可以不一样吗？
   typename Gemm::Arguments arguments{
-      problem_size,               
-      {(DATATYPE *)A, lda},  
-      {(DATATYPE *)B, ldb},  
+      problem_size,          
+       {(DATATYPE *)A, lda},  
+       {(DATATYPE *)B, ldb},       
       {(BROADCAST_DATATYPE *)bias, 0},
       {(C_DATATYPE *)C, ldc},  
       {alpha, beta},                    

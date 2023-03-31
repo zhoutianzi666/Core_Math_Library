@@ -11,7 +11,9 @@ include_directories("/zhoukangkang/Core_Math_Library/cutlass/tools/util/include/
 
 
 # nvcc flags
+# cutlass 2.11 
 set(CUDA_NVCC_FLAGS -gencode arch=compute_75,code=sm_75;)
+
 CUDA_ADD_EXECUTABLE(a.out ${all_cu})
 target_link_libraries(a.out cublas)
 target_link_libraries(a.out cudnn)
