@@ -30,13 +30,12 @@ int main(void) {
   init(a, m * k);
   init(b, k * n);
 
-for (int i = 0; i < m * k ;i++)
-{
+// 为了搞清楚CUTLASS sgemm原理调试用的
+for (int i = 0; i < m * k ;i++)  {
   a[i] = i;
 }
 
-for (int i = 0; i < k * n;i++)
-{
+for (int i = 0; i < k * n;i++) {
   b[i] = i;
 }
 
@@ -63,30 +62,24 @@ for (int i = 0; i < k * n;i++)
   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
   cudaMemcpy(dev_b, b, k * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
-  for (int i = 0; i < WARMUP; i++) {
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
-    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
-    // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);
-    //matmul_gpu_naive(dev_a, dev_b, dev_c, m, n, k);
-  }
 
   cudaEvent_t beg, end;
   cudaEventCreate(&beg);
   cudaEventCreate(&end);
   cudaEventRecord(beg);
 
-  for (int i = 0; i < REPEATE; i++) {
+  for (int i = 0; i < WARMUP + REPEATE; i++) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
+
+    if (i == WARMUP) {
+      cudaEventCreate(&beg);
+      cudaEventCreate(&end);
+      cudaEventRecord(beg);
+    }
+
     CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
-    // cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, dev_b, n,
-    //             dev_a, k, &beta, dev_c, n);
     // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
