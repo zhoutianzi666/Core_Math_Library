@@ -122,11 +122,13 @@ __global__ void my_row_col_kernel2(DATATYPE *output,
 
 // 下面的代码还在行的维度上做条带挖掘！，牛逼楼！
 
-template <int32_t accessSize = 8, typename accessType = float,
-int blockM = 16, int blockN = 16, int padding = 2,
-int tileM = 16, int tileN = blockN * accessSize
+
+
+template <int32_t accessSize = 1, typename accessType = half,
+int blockM = 4, int blockN = 128, int padding = 1,
+int tileM = 32, int tileN = blockN * accessSize
 >
-__global__ void my_row_col_kernel3(DATATYPE *output, 
+__global__ void batch_transpose_kernel_fp16(DATATYPE *output, 
                                    const DATATYPE *input,
                                              int batch, int M,
                                              int N) {
@@ -135,11 +137,11 @@ __global__ void my_row_col_kernel3(DATATYPE *output,
   int vol = M * N;
   int batch_i = blockIdx.z;
 
-  // g_row_0 , g_col_0表示这个input矩阵的block的最左上角的全局的行号和列号，他们分别是tileM和tileN的倍数！！
+  // g_row_0 , g_col_0 is is the upper-left ele in this tile.
   int g_row_0 = blockIdx.x * tileM;
   int g_col_0 = blockIdx.y * tileN;
 
-  int tid_in_block = threadIdx.x + threadIdx.y * blockDim.x;
+  int tid_in_block = threadIdx.x + threadIdx.y * blockM;
   // local column and row read by the current cuda thread
   int local_row_start = tid_in_block / blockN;
   int row_step = blockM;
@@ -180,7 +182,7 @@ __global__ void my_row_col_kernel3(DATATYPE *output,
 void my_row_col1(DATATYPE *output, const DATATYPE *input, int batch,
                            int M, int N) {
 
-  if (N % 8 == 0 ) {
+  if (N % 8 == 0) {
   const int blockM = 16;
   const int blockN = 16;
   const int accessSize = 8;
@@ -190,8 +192,8 @@ void my_row_col1(DATATYPE *output, const DATATYPE *input, int batch,
   assert(N % accessSize == 0);
   uint3 grid = {(M + tileM - 1) / tileM, (N + tileN - 1) / tileN, batch};
   uint3 block = {blockM, blockN, 1};
-  my_row_col_kernel3<accessSize, float4, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
-  } else if (N % 4 == 0 ) {
+  batch_transpose_kernel_fp16<accessSize, float4, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
+  } else if (N % 4 == 0 && 0) {
   const int blockM = 16;
   const int blockN = 32;
   const int accessSize = 4;
@@ -201,8 +203,8 @@ void my_row_col1(DATATYPE *output, const DATATYPE *input, int batch,
   assert(N % accessSize == 0);
   uint3 grid = {(M + tileM - 1) / tileM, (N + tileN - 1) / (tileN), batch};
   uint3 block = {blockM, blockN, 1};
-  my_row_col_kernel3<accessSize, float2, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
-  } else if (N % 2 == 0 ) {
+  batch_transpose_kernel_fp16<accessSize, float2, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
+  } else if (N % 2 == 0 && 0) {
   const int blockM = 8;
   const int blockN = 64;
   const int accessSize = 2;
@@ -212,7 +214,7 @@ void my_row_col1(DATATYPE *output, const DATATYPE *input, int batch,
   assert(N % accessSize == 0);
   uint3 grid = {(M + tileM - 1) / tileM, (N + tileN - 1) / (tileN), batch};
   uint3 block = {blockM, blockN, 1};
-  my_row_col_kernel3<accessSize, half2, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
+  batch_transpose_kernel_fp16<accessSize, half2, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
   } else if (1) {
   const int blockM = 4;
   const int blockN = 128;
@@ -223,7 +225,7 @@ void my_row_col1(DATATYPE *output, const DATATYPE *input, int batch,
   assert(N % accessSize == 0);
   uint3 grid = {(M + tileM - 1) / tileM, (N + tileN - 1) / (tileN), batch};
   uint3 block = {blockM, blockN, 1};
-  my_row_col_kernel3<accessSize, half, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
+  batch_transpose_kernel_fp16<accessSize, half, blockM, blockN, padding, tileM, tileN><<<grid, block>>>(output, input, batch, M, N);
   }
 
 }
