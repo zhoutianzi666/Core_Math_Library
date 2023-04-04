@@ -16,12 +16,8 @@ using DATATYPE = half;
 #include "cutlass/conv/kernel/default_conv2d_fprop.h"
 #include "cutlass/epilogue/thread/linear_combination_residual_block.h"
 
-void cutlass_nhwc_conv_residual(const half *input, const half *weight,
-                                const half *bias, half *output, int batch,
-                                int ic, int ih, int iw, int kh, int kw, int oc,
-                                int pad_h, int pad_w, int stride_h,
-                                int stride_w, int oh, int ow,
-                                const half *residual) {
+void cutlass_nhwc_conv_residual(ConvAllParams params) {
+
   using EpilogueOp = cutlass::epilogue::thread::LinearCombinationResidualBlock<
       cutlass::half_t, float, float, cutlass::half_t, 8,
       cutlass::epilogue::thread::Identity, cutlass::plus,
@@ -38,15 +34,45 @@ void cutlass_nhwc_conv_residual(const half *input, const half *weight,
           cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>, 2,
           cutlass::arch::OpMultiplyAdd,
           cutlass::conv::IteratorAlgorithm::kOptimized,
-          cutlass::conv::StrideSupport::kStrided, 8, 8>::Kernel;
+          cutlass::conv::StrideSupport::kStrided, 1, 1>::Kernel;
 
   using ImplicitGemm =
       cutlass::conv::device::ImplicitGemmConvolution<Conv2dFpropKernel>;
 
+
+  int batch = params.batch;
+  int ih = params.ih;
+  int iw = params.iw;
+  int ic = params.ic;
+  int oc = params.oc;
+  int kh = params.kh;
+  int kw = params.kw;
+  int pad_h0 = params.pad_h0;
+  int pad_h1 = params.pad_h1;
+  int pad_w0 = params.pad_w0;
+  int pad_w1 = params.pad_w1;
+  int stride_h = params.stride_h;
+  int stride_w = params.stride_w;
+  int dilation_h = params.dilation_h;
+  int dilation_w = params.dilation_w;
+
+  int oh = params.oh;
+  int ow = params.ow;
+  auto input = params.input;
+  auto weight = params.weight;
+  auto bias = params.bias;
+  auto residual = params.residual;
+
+  auto output = params.output;
+
+  int groups = 1;
+
+  cutlass::conv::Mode mode = cutlass::conv::Mode::kCrossCorrelation;
+
   cutlass::conv::Conv2dProblemSize problem_size(
-      {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h, pad_w, pad_h, pad_w},
-      {stride_h, stride_w}, {1, 1}, {batch, oh, ow, oc},
-      cutlass::conv::Mode::kCrossCorrelation, 1);
+      {batch, ih, iw, ic}, {oc, kh, kw, ic}, {pad_h0, 0, pad_w0, 0},
+      {stride_h, stride_w}, {dilation_h, dilation_w}, {batch, oh, ow, oc}, mode,
+      1, groups);
 
   typename ImplicitGemm::Arguments arguments{
       problem_size,
@@ -58,8 +84,7 @@ void cutlass_nhwc_conv_residual(const half *input, const half *weight,
       cutlass::conv::SplitKMode::kSerial,
       (cutlass::half_t *)(bias),
       nullptr,
-      0,
-      oc};
+      0, oc};
 
   ImplicitGemm implicit_gemm_op;
   size_t bytes = implicit_gemm_op.get_workspace_size(arguments);

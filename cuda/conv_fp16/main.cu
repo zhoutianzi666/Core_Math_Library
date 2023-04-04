@@ -17,21 +17,18 @@
 using DATATYPE = half;
 using C_DATATYPE = half;
 
-void CUDNN_CHECK(cudnnStatus_t status) {
-  if (status != CUDNN_STATUS_SUCCESS) {
-    printf("不能实施\n");
-  }
-}
-
 int main(void) {
+  //cudaSetDevice(3);
   int batch = 1;
-  int ic = 3;
-  int ih = 240;
-  int iw = 240;
+  int ic = 32;
+  int ih = 112;
+  int iw = 112;
   int pad_h0 = 1;
   int pad_h1 = 1;
   int pad_w0 = 1;
   int pad_w1 = 1;
+  int groups = 32;
+  int kc = ic / groups;
   int oc = 32;
   int kh = 3;
   int kw = 3;
@@ -44,10 +41,13 @@ int main(void) {
   int oh = (ih + pad_h0 + pad_h1 - dilation_h * (kh - 1) - 1) / stride_h + 1;
   int ow = (iw + pad_w0 + pad_w1 - dilation_w * (kw - 1) - 1) / stride_w + 1;
 
+
+  ConvAllParams params;
+
   // Note input and weight is in CPU place
   DATATYPE *input, *weight, *residual, *bias;
   int input_size = batch * ic * ih * iw;
-  int weight_size = oc * ic * kh * kw;
+  int weight_size = oc * kc * kh * kw;
   int output_size = batch * oc * oh * ow;
 
   cudaError_t status ;
@@ -64,7 +64,7 @@ int main(void) {
   init(weight, weight_size);
   init(residual, output_size);
   init(bias, oc);
-  //  memset(bias, 0, sizeof(DATATYPE) * oc);
+  //memset(bias, 0, sizeof(C_DATATYPE) * oc);
 
   // out is used to store the result form dev_out
   C_DATATYPE *out_from_dev;
@@ -77,59 +77,78 @@ int main(void) {
   DATATYPE *dev_input, *dev_weight, *dev_residual, *dev_bias;
   C_DATATYPE *dev_out;
 
-  // ---------------------------this is
-  // cuDNN-------------------------------------------------------
+  // ---------------------------this is cuDNN-------------------------------------------------------
 
   cudnnHandle_t handle_cudnn;
   cudnnCreate(&handle_cudnn);
+  params.handle_cudnn = handle_cudnn;
+  
   cudnnTensorDescriptor_t input_descriptor;
+  auto cudnn_layout = CUDNN_TENSOR_NHWC;
   CUDNN_CHECK(cudnnCreateTensorDescriptor(&input_descriptor));
-  CUDNN_CHECK(cudnnSetTensor4dDescriptor(input_descriptor, CUDNN_TENSOR_NCHW,
+  CUDNN_CHECK(cudnnSetTensor4dDescriptor(input_descriptor, cudnn_layout,
                                          CUDNN_DATA_HALF, batch, ic, ih, iw));
 
   cudnnTensorDescriptor_t output_descriptor;
   CUDNN_CHECK(cudnnCreateTensorDescriptor(&output_descriptor));
-  CUDNN_CHECK(cudnnSetTensor4dDescriptor(output_descriptor, CUDNN_TENSOR_NCHW,
+  CUDNN_CHECK(cudnnSetTensor4dDescriptor(output_descriptor, cudnn_layout,
                                          CUDNN_DATA_HALF, batch, oc, oh, ow));
   cudnnFilterDescriptor_t kernel_descriptor;
   CUDNN_CHECK(cudnnCreateFilterDescriptor(&kernel_descriptor));
   CUDNN_CHECK(cudnnSetFilter4dDescriptor(kernel_descriptor, CUDNN_DATA_HALF,
-                                         CUDNN_TENSOR_NCHW, oc, ic, kh, kw));
+                                         cudnn_layout, oc, kc, kh, kw));
+
+  cudnnTensorDescriptor_t bias_descriptor;
+  CUDNN_CHECK(cudnnCreateTensorDescriptor(&bias_descriptor));
+  CUDNN_CHECK(cudnnSetTensor4dDescriptor(bias_descriptor, cudnn_layout,
+                                         CUDNN_DATA_HALF,
+                                         1, oc, 1, 1));
 
   cudnnConvolutionDescriptor_t conv_descriptor;
   CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&conv_descriptor));
   CUDNN_CHECK(cudnnSetConvolution2dDescriptor(
-      conv_descriptor, pad_h0, pad_w0,  // zero-padding
+      conv_descriptor, pad_h0, pad_w0,  // 右边不需要告诉他,还是默认是对称的呢？
       stride_h, stride_w,               // stride
-      1, 1, CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));
+      dilation_h, dilation_w, CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));
+  CUDNN_CHECK(cudnnSetConvolutionGroupCount(conv_descriptor, groups));
 
+  cudnnActivationDescriptor_t act_desc;
+  CUDNN_CHECK(cudnnCreateActivationDescriptor(&act_desc));
+  cudnnSetActivationDescriptor(
+    act_desc,
+    CUDNN_ACTIVATION_IDENTITY,
+    CUDNN_PROPAGATE_NAN,
+    0.f
+  );
+
+
+  std::cout << "这个我猜可能是逻辑判断来确定的最优算法！" << std::endl;
   int returnedAlgoCount;
   cudnnConvolutionFwdAlgoPerf_t perfResults[100];
   CUDNN_CHECK(cudnnFindConvolutionForwardAlgorithm(
       handle_cudnn, input_descriptor, kernel_descriptor, conv_descriptor,
       output_descriptor, 100, &returnedAlgoCount, perfResults));
 
-  size_t workspace_size = 10000000;
-  printf("%d\n", returnedAlgoCount);
+  size_t cudnn_workspace_size = 0;
+  printf("\t返回的算法个数是：%d\n", returnedAlgoCount);
+  for (int i = 0; i < returnedAlgoCount; i++) {
+  std::cout << "\t perfResults[" << i<< "]:" << cudnnAlgoName(perfResults[i].algo) 
+            <<" " << perfResults[i].status
+            << std::endl;
+  }
   CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(
       handle_cudnn, input_descriptor, kernel_descriptor, conv_descriptor,
-      output_descriptor, perfResults[0].algo, &workspace_size));
-  printf("%d\n", workspace_size);
-  std::cout << "perfResults[0]:" << perfResults[0].algo << perfResults[0].status
-            << std::endl;
-  std::cout << "perfResults[1]:" << perfResults[1].algo << perfResults[1].status
-            << std::endl;
-  std::cout << "perfResults[2]:" << perfResults[2].algo << perfResults[2].status
-            << std::endl;
-  std::cout << "perfResults[3]:" << perfResults[3].algo << perfResults[3].status
-            << std::endl;
-  std::cout << "perfResults[4]:" << perfResults[4].algo << perfResults[4].status
-            << std::endl;
+      output_descriptor, perfResults[0].algo, &cudnn_workspace_size));
+  printf("\t cudnn_workspace_size: %d\n", cudnn_workspace_size);
+  std::cout << "\t启发式搜索想要的空间大小为: " << cudnn_workspace_size<< std::endl;
+  cudnn_workspace_size = 150 * 1000 * 1000;
+  printf("\t我将其设置为 cudnn_workspace_size: %d\n", cudnn_workspace_size); 
+
   cudnnSetConvolutionMathType(conv_descriptor, CUDNN_TENSOR_OP_MATH);
 
-  void *workspace = nullptr;
-  cudaMalloc(&workspace, workspace_size);
-  std::cout << workspace << std::endl;
+  void *cudnn_workspace = nullptr;
+  cudaMalloc(&cudnn_workspace, cudnn_workspace_size);
+  std::cout << "\tcudnn_workspace pointer: " << cudnn_workspace << std::endl;
 
   //----------------------------cuDNN ends-------------------------------------
 
@@ -152,18 +171,24 @@ int main(void) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(dev_bias, bias, oc * sizeof(DATATYPE), cudaMemcpyHostToDevice);
 
-  // ---------------------------this is also
-  // cuDNN-----------------------------------------------
+  // ---------------------------this is also cuDNN-----------------------------------------------
+  std::cout << "这个我猜可能是真实的计算来确定的最优算法！" << std::endl;
   CUDNN_CHECK(cudnnFindConvolutionForwardAlgorithmEx(
       handle_cudnn, input_descriptor, dev_input, kernel_descriptor, dev_weight,
       conv_descriptor, output_descriptor, dev_out, 100, &returnedAlgoCount,
-      perfResults, workspace, workspace_size));
-  printf("返回的算法个数是：%d\n", returnedAlgoCount);
+      perfResults, cudnn_workspace, cudnn_workspace_size));
+  for (int i = 0; i < returnedAlgoCount; i++) {
+  std::cout << "\tperfResults[" << i<< "]:" << cudnnAlgoName(perfResults[i].algo) 
+            <<" " << perfResults[i].status
+            << std::endl;
+  }
+  printf("\t返回的算法个数是：%d\n", returnedAlgoCount);
+  cudaMemset(dev_out, 0, sizeof(C_DATATYPE) * out_size);
 
-  // ------------------------cuDNN
-  // ends-----------------------------------------------------
+  // 上面必须要清零！因为cuDNN要计算这个结果！
 
-  ConvAllParams params;
+  // ------------------------cuDNN ends-----------------------------------------------------
+
   params.batch = batch;
   params.ic = ic;
   params.ih = ih;
@@ -179,6 +204,7 @@ int main(void) {
   params.stride_w = stride_w;
   params.dilation_h = dilation_h;
   params.dilation_w = dilation_w;
+  params.groups = groups;
 
   // Here is consistent with
   params.oh = oh;
@@ -186,110 +212,97 @@ int main(void) {
 
   params.input = dev_input;
   params.weight = dev_weight;
-  params.residual = nullptr;
+  params.residual = dev_residual;
   params.bias = dev_bias;
   params.output = dev_out;
 
-  for (int i = 0; i < WARMUP; i++) {
-    //   const float alpha = 1.0f;
-    //   const float beta = 0.0f;
-    //   CUDNN_CHECK(cudnnConvolutionForward(
+  cudaEvent_t beg, end;
+
+
+  params.cudnn_workspace_size = 150 * 1000 * 1000;
+  cudaMalloc(&params.cudnn_workspace, params.cudnn_workspace_size);
+
+  for (int i = 0; i < WARMUP + REPEATE; i++) {
+
+    if (i == WARMUP) {
+      cudaEventCreate(&beg);
+      cudaEventCreate(&end);
+      cudaEventRecord(beg);
+    }
+
+    params.act_type = IDENTITY;
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+
+    // 下面是conv+add
+    // CUDNN_CHECK(cudnnConvolutionForward(
     // handle_cudnn,
+    // &alpha, 
+    // input_descriptor, dev_input,
+    // kernel_descriptor, dev_weight,
+    // conv_descriptor, CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM, cudnn_workspace, cudnn_workspace_size, &beta, 
+    // output_descriptor, dev_out));
+    // CUDNN_CHECK(cudnnAddTensor(handle_cudnn, &alpha, 
+    // bias_descriptor, dev_bias, &alpha, output_descriptor, dev_out));
+    // 这个是激活
+    // CUDNN_CHECK(cudnnActivationForward(
+    // handle_cudnn,
+    // act_desc,
     // &alpha,
-    // input_descriptor,
-    // dev_input,
-    // kernel_descriptor,
-    // dev_weight,
-    // conv_descriptor,
-    // perfResults[0].algo,
-    // workspace,
-    // workspace_size,
+    // output_descriptor,
+    // dev_out,
     // &beta,
     // output_descriptor,
     // dev_out));
+  
+  // 这个是cba
+  //  CUDNN_CHECK(cudnnConvolutionBiasActivationForward(handle_cudnn,
+  //   &alpha,
+  //   input_descriptor,
+  //   dev_input,
+  //   kernel_descriptor,
+  //   dev_weight,
+  //   conv_descriptor,
+  //   CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM,
+  //   cudnn_workspace,
+  //   cudnn_workspace_size,
+  //   &beta,
+  //   output_descriptor,
+  //   dev_out,
+  //   bias_descriptor,
+  //   dev_bias,
+  //   act_desc,
+  //   output_descriptor,
+  //   dev_out));
 
-    // cutlass_nhwc_conv(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
-    // ih,
-    //                   iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
-    //                   ow);
+    //这个函数里面包含着各种创建descriptor的cudnn kernel。
+    // params.act_type = IDENTITY;
+    // cudnn_nhwc_conv(params);
 
-    cutlass_nhwc_conv_bias_swish(params);
-    //cutlass_nhwc_conv_bias_swish_simt(params);
+    // params.act_type = IDENTITY;
+    // cutlass_nhwc_conv_relu(params);
+    
+    // params.act_type = SILU;
+    // cutlass_nhwc_conv_bias_swish(params);
+    // cutlass_nhwc_conv_bias_swish_simt(params);
 
-    //  cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
-    //  dev_out,
-    //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    //   stride_h, stride_w, oh, ow);
-
-    // my_implicit_gemm_gpu(dev_input, dev_weight, dev_bias, dev_out,
-    // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    // stride_h, stride_w, oh, ow);
-
-    //cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
-    // dev_out,
-    //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    //   stride_h, stride_w, oh, ow);
-
-    // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
-    // ih, iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
-
-    // cutlass_nhwc_conv_residual(dev_input, dev_weight, dev_bias, dev_out,
-    // batch, ic, ih, iw, kh, kw,
-    //   oc, pad_h, pad_w, stride_h, stride_w, oh, ow, dev_residual);
-  }
-
-  cudaEvent_t beg, end;
-  cudaEventCreate(&beg);
-  cudaEventCreate(&end);
-  cudaEventRecord(beg);
-
-  for (int i = 0; i < REPEATE; i++) {
-    // const float alpha = 1.0f;
-    // const float beta = 0.0f;
-    // cudnnConvolutionForward(
-    // handle_cudnn,
-    // &alpha,
-    // input_descriptor,
-    // dev_input,
-    // kernel_descriptor,
-    // dev_weight,
-    // conv_descriptor,
-    // perfResults[0].algo,
-    // workspace,
-    // workspace_size,
-    // &beta,
-    // output_descriptor,
-    // dev_out);
-
-    // cutlass_nhwc_conv(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
-    // ih,
-    //                   iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh,
-    //                   ow);
-
-    cutlass_nhwc_conv_bias_swish(params);
-    //cutlass_nhwc_conv_bias_swish_simt(params);
-
-    // cutlass_nhwc_conv_bias_leaky_relu(dev_input, dev_weight, dev_bias,
-    // dev_out,
-    //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    //   stride_h, stride_w, oh, ow);
+    // params.act_type = LEAKY_RELU;
+    // cutlass_nhwc_conv_bias_leaky_relu(params);
 
     // my_implicit_gemm_gpu(dev_input, dev_weight, dev_bias, dev_out,
     // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
     // stride_h, stride_w, oh, ow);
 
-    // cutlass_nhwc_conv_bias_swish_simt(dev_input, dev_weight, dev_bias,
-    // dev_out,
-    //   batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    //   stride_h, stride_w, oh, ow);
+    // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
 
-    // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic,
-    // ih,
-    //     iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
+    // params.act_type = CONV2D_BIAS_ADD_RELU;
+    // cutlass_nhwc_conv_residual(params);
 
-    // cutlass_nhwc_conv_residual(dev_input, dev_weight, dev_bias, dev_out,
-    // batch, ic, ih, iw, kh, kw,
-    //   oc, pad_h, pad_w, stride_h, stride_w, oh, ow, dev_residual);
+    params.act_type = IDENTITY;
+    cutlass_nhwc_conv_depthwise(params);
+    
+    // params.act_type = SILU;
+    // cutlass_group_conv_bias_swish(params);
   }
 
   cudaEventRecord(end);
@@ -321,7 +334,7 @@ int main(void) {
   params.weight = weight;
   params.bias = bias;
   params.output_cpu_fp32 = out_cpu_fp32;
-  params.residual = nullptr;
+  params.residual = residual;
 
   naive_conv_cpu(params);
 
@@ -338,5 +351,8 @@ int main(void) {
   free(weight);
   free(out_from_dev);
   free(out_cpu_fp32);
+  
+  cudaFree(params.cudnn_workspace);
+  cudaFree(cudnn_workspace);
   return 0;
 }

@@ -25,7 +25,7 @@ void cutlass_nhwc_conv_depthwise(ConvAllParams params) {
 
 
 
-constexpr int groups_per_cta = 16;
+constexpr int groups_per_cta = 32;
 using ThreadBlockOutputShape = cutlass::conv::TensorNHWCShape<1, 8, 8, groups_per_cta>;
 using FilterShape = cutlass::MatrixShape<3, 3>;
 
@@ -46,7 +46,7 @@ using SwizzleThreadBlock =
 // This code section describes the epilogue part of the kernel, we use default value
 using EpilogueOp = cutlass::epilogue::thread::LinearCombination<
     cutlass::half_t,               
-    1,  // The number of elements per vectorized. memory access. This becomes the vector width of
+    8,  // The number of elements per vectorized. memory access. This becomes the vector width of
                                  // math instructions in the epilogue too.
     cutlass::half_t,          // Data type of accumulator
     float,
@@ -69,13 +69,13 @@ using DepthwiseDirect2dConv = typename cutlass::conv::kernel::DefaultDepthwiseDi
     InstructionShape,
     EpilogueOp,
     SwizzleThreadBlock,
-    4,
+    2,
     cutlass::arch::OpMultiplyAdd,
     // This code section describe iterator algorithm selected is kFixedStrideDilation
     cutlass::conv::IteratorAlgorithm::kFixedStrideDilation,
     cutlass::conv::StrideSupport::kStrided,
     cutlass::MatrixShape<1, 1>,
-    cutlass::MatrixShape<1, 1>>::Kernel;
+    cutlass::MatrixShape<1, 1>, 1, 1>::Kernel;
 
   using Direct2dConv = cutlass::conv::device::DirectConvolution<DepthwiseDirect2dConv>;
   int batch = params.batch;
@@ -109,7 +109,7 @@ using DepthwiseDirect2dConv = typename cutlass::conv::kernel::DefaultDepthwiseDi
       {batch, ih, iw, ic}, {oc, kh, kw, kc}, {pad_h0, 0, pad_w0, 0},
       {stride_h, stride_w}, {dilation_h, dilation_w}, {batch, oh, ow, oc}, 
       cutlass::conv::Mode::kCrossCorrelation,
-      1, groups);
+      48, groups);
 
   typename Direct2dConv::Arguments arguments{
       problem_size,

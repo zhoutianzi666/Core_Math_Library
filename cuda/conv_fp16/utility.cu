@@ -1,6 +1,11 @@
 #include <stdio.h>
 
 #include "utility.h"
+#include <iostream>
+#include <vector>
+#include <functional>
+
+#include "cutlass/cutlass.h"
 
 void init(half *a, int size) {
   for (int i = 0; i < size; i++) {
@@ -55,6 +60,8 @@ void naive_conv_cpu(ConvAllParams params) {
   int pad_w0 = params.pad_w0;
   int pad_w1 = params.pad_w1;
   int oc = params.oc;
+  int groups = params.groups;
+  int kc = ic / groups;
   int kh = params.kh;
   int kw = params.kw;
   int stride_h = params.stride_h;
@@ -77,8 +84,9 @@ void naive_conv_cpu(ConvAllParams params) {
     batch, oc, oh, ow
   };
   struct logical_struct weight_shape {
-    oc, ic, kh, kw
+    oc, kc, kh, kw
   };
+
   for (int bs_i = 0; bs_i < batch; bs_i++) {
     for (int oc_i = 0; oc_i < oc; oc_i++) {
       for (int oh_i = 0; oh_i < oh; oh_i++) {
@@ -95,13 +103,18 @@ void naive_conv_cpu(ConvAllParams params) {
               int iw_i = ow_i * stride_w - pad_w0 + kw_i * dilation_w;
               if (ih_i < 0 || ih_i >= ih) continue;
               if (iw_i < 0 || iw_i >= iw) continue;
+              
+              int groups_i = (oc_i / (oc / groups));
+              int ic_start = groups_i * kc;
+              int ic_end = (groups_i + 1) * kc;
 
-              for (int ic_i = 0; ic_i < ic; ic_i++) {
+              for (int ic_i = ic_start; ic_i < ic_end; ic_i++) {
+
                 struct logical_struct input_index {
                   bs_i, ic_i, ih_i, iw_i
                 };
                 struct logical_struct weight_index {
-                  oc_i, ic_i, kh_i, kw_i
+                  oc_i, ic_i - ic_start, kh_i, kw_i
                 };
                 const half *in_ptr = input + nhwc(input_shape, input_index);
                 const half *weight_ptr =
@@ -110,29 +123,83 @@ void naive_conv_cpu(ConvAllParams params) {
               }
             }
           }
-          if (residual)
-            sum += __half2float(*(residual + nhwc(output_shape, output_index)));
 
           // bias
           sum += __half2float(*(bias + oc_i));
-
-          // no bias
-          // *out_ptr = sum;
-
-          // relu
-          //*out_ptr = sum > 0 ? sum : 0.f;
-
-          // silu
           float x = sum;
-          *out_ptr = (x) * (1.f / (1 + exp(-x)));
-
-          // leaky_relu
-          // if (x > 0) *out_ptr = x;
-          // else {
-          //   *out_ptr = x * 0.5 ;
-          // }
+          switch (params.act_type) {
+            case IDENTITY:
+              *out_ptr = sum ;
+              break;
+            case SIGMOID:
+              *out_ptr = 1/ (1 + std::exp(-x)) ;
+              break;
+            case RELU:
+              *out_ptr = sum > 0 ? sum : 0.f;
+              break;
+            case SILU:
+              *out_ptr = (x) * (1.f / (1 + exp(-x)));
+              break;
+            case LEAKY_RELU:
+              if (x > 0) *out_ptr = x;
+              else {
+                *out_ptr = x * 0.5 ;
+              }
+              break;
+            case CONV2D_BIAS_ADD_RELU:
+              x += __half2float(*(residual + nhwc(output_shape, output_index)));
+              *out_ptr = x > 0 ? x : 0.f;
+            default:
+              break;
+          }
         }
       }
     }
   }
+}
+
+
+
+int ProfileToGetBestConfig(
+    const std::vector<std::function<cutlass::Status(ConvAllParams)>> &all_func,
+    const ConvAllParams &params) {
+
+  constexpr int WARMUP = 10;
+  constexpr int REPEAT = 100;
+  float min_time = 100000.f;
+  int min_time_index = -1;
+  for (int i = 0; i < all_func.size(); i++) {
+    cutlass::Status status;
+    auto func = all_func[i];
+    // When func has large diff, we will make it nullptr.
+    if (!func) continue;
+
+    for (int ii = 0; ii < WARMUP; ii++) {
+      status = func(params);
+    }
+
+    cudaEvent_t beg, end;
+    cudaEventCreate(&beg);
+    cudaEventCreate(&end);
+    cudaEventRecord(beg);
+    for (int ii = 0; ii < REPEAT; ii++) {
+      status = func(params);
+    }
+
+    cudaEventRecord(end);
+    cudaEventSynchronize(end);
+    float elapsed_time;
+    cudaEventElapsedTime(&elapsed_time, beg, end);
+    if (elapsed_time < min_time && status == cutlass::Status::kSuccess) {
+      min_time = elapsed_time;
+      min_time_index = i;
+      // debug code
+      std::cout << "tactic " << i << "cost_time: " << elapsed_time << "ms." << std::endl;
+    }
+  }
+
+  if (min_time_index < 0) {
+    assert(0);
+  }
+  return min_time_index;
 }
