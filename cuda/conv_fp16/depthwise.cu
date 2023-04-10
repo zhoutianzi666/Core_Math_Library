@@ -120,7 +120,7 @@ using DepthwiseDirect2dConv = typename cutlass::conv::kernel::DefaultDepthwiseDi
       {1.f, 1.f},
        {(cutlass::half_t *)residual, {kc, kc * kw, kc * kw * kh}},
        };
-       // 这里residual被我用来当作临时空间了哦！
+       // 这里residual被我用来当作临时空间了哦！一定要保证他有filter_size*sizeof(half)这么大哦！
       // cutlass::conv::SplitKMode::kParallel 也可以用啊，但是啥时候会快呢？
 
   Direct2dConv implicit_gemm_op;
