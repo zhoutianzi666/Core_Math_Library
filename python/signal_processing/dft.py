@@ -6,7 +6,9 @@ def my_dft(x):
     N = len(x)
     result = [0] * N
     for k in range(N):
+        # 下面就是小n序列
         tmp=np.array(range(N))
+        # 下面就是(-j * 2pi * k * n/N)
         tmp = tmp * (-1j) * 2 * np.pi * k * (1 / N)
         tmp = np.exp(tmp)
         result[k] = sum(tmp * x)
@@ -21,6 +23,7 @@ for i in range(len(X)):
     ele1 = X[i]
     ele2 = Y[i]
     if (np.abs(ele1 - ele2) > 0.000001):
+        print(ele1)
         print("my_dft 和 np.fft.fft的结果不一样")
 
 # X是一堆复数哦！记住啦！
