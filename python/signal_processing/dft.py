@@ -15,7 +15,7 @@ def my_dft(x):
     return result
 
 t = np.linspace(0, 1, 1000)
-x = np.sin(2*t)
+x = np.sin(2*t) * 0 + np.cos(t)
 X = np.fft.fft(x)
 Y = my_dft(x)
 
@@ -33,11 +33,14 @@ N = len(x)
 # f是横坐标，为啥表示频率范围呢？
 f = np.linspace(0, 1, N)
 
+# 画出x的时域图
+# plt.plot(t, x)
 # 绘制序列 x 的频谱图
 plt.plot(f, np.abs(X))
 plt.xlabel('Frequency (Hz)')
 # 下面这个是控制坐标轴范围，但是控制图像大小是哪个选项呢？
 #plt.xlim(-1, 1000)
+# 下面这个是振幅
 plt.ylabel('Amplitude')
 plt.savefig('1.png')
 #plt.show()
