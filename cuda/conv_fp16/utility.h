@@ -85,11 +85,8 @@ void my_naive_conv_gpu(const half *input, const half *weight, const half *bias,
                        int kw, int oc, int pad_h, int pad_w, int stride_h,
                        int stride_w, int oh, int ow);
 
-void my_implicit_gemm_gpu(const half *input, const half *weight,
-                          const half *bias, half *output, int batch, int ic,
-                          int ih, int iw, int kh, int kw, int oc, int pad_h,
-                          int pad_w, int stride_h, int stride_w, int oh,
-                          int ow);
+void my_implicit_gemm_gpu(ConvAllParams params);
+
 void cutlass_nhwc_conv_bias_leaky_relu(ConvAllParams params);
 
 void cutlass_nhwc_conv_bias_swish_simt(ConvAllParams params);
@@ -100,7 +97,7 @@ std::string cudnnAlgoName(cudnnConvolutionFwdAlgo_t algo);
 void CUDNN_CHECK(cudnnStatus_t status);
 void cudnn_nhwc_conv(ConvAllParams params);
 
-
+void  my_nchw_cov2d_depthwise(ConvAllParams params);
 
 
 

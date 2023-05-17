@@ -22,6 +22,8 @@ float diff(const half *c, const float *c_baseline, int n) {
   float max_diff = -1.;
   for (int i = 0; i < n; i++) {
     float c_value = __half2float(c[i]);
+    // std::cout << c_baseline[i] << std::endl;
+    // std::cout << c_value << std::endl;
     if (std::abs(c_baseline[i] - c_value) > max_diff) {
       max_diff = std::abs(c_baseline[i] - c_value);
     }

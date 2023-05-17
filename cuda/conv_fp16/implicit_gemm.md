@@ -17,13 +17,13 @@
 
 
 - A * B
-- A：(N * OH * OW) * (IC * FH * FW)
-- B：(IC * FH * FW) * (OC):是行矩阵
-
+- A：(N * OH * OW) * (IC * FH * FW)是行矩阵
+- B：(IC * FH * FW) * (OC):是列存储矩阵
 
 &emsp;
 
-- 理论上来讲，A矩阵从全局内存中搬运到smem中的时候，需要重新排布的，排布成矩阵的形式
+
+- 理论上来讲，每个thread block将 A矩阵的一部分 从全局内存中搬运到smem中的时候，需要重新排布的，排布成矩阵的形式，这样便于调用TensorCore
   - 但是B矩阵似乎直接搬到smem就好了
 
 

@@ -21,15 +21,15 @@ int main(void) {
   //cudaSetDevice(3);
   int batch = 1;
   int ic = 32;
-  int ih = 112;
-  int iw = 112;
+  int ih = 64;
+  int iw = 64;
   int pad_h0 = 1;
   int pad_h1 = 1;
   int pad_w0 = 1;
   int pad_w1 = 1;
-  int groups = 32;
+  int groups = 1;
   int kc = ic / groups;
-  int oc = 32;
+  int oc = 128;
   int kh = 3;
   int kw = 3;
   int stride_h = 1;
@@ -64,7 +64,7 @@ int main(void) {
   init(weight, weight_size);
   init(residual, output_size);
   init(bias, oc);
-  //memset(bias, 0, sizeof(C_DATATYPE) * oc);
+  memset(bias, 0, sizeof(C_DATATYPE) * oc);
 
   // out is used to store the result form dev_out
   C_DATATYPE *out_from_dev;
@@ -279,8 +279,8 @@ int main(void) {
     // params.act_type = IDENTITY;
     // cudnn_nhwc_conv(params);
 
-    // params.act_type = IDENTITY;
-    // cutlass_nhwc_conv_relu(params);
+    //params.act_type = IDENTITY;
+    //cutlass_nhwc_conv_relu(params);
     
     // params.act_type = SILU;
     // cutlass_nhwc_conv_bias_swish(params);
@@ -288,19 +288,21 @@ int main(void) {
 
     // params.act_type = LEAKY_RELU;
     // cutlass_nhwc_conv_bias_leaky_relu(params);
-
-    // my_implicit_gemm_gpu(dev_input, dev_weight, dev_bias, dev_out,
-    // batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w,
-    // stride_h, stride_w, oh, ow);
+    
+    params.act_type = IDENTITY;
+    my_implicit_gemm_gpu(params);
 
     // my_naive_conv_gpu(dev_input, dev_weight, dev_bias, dev_out, batch, ic, ih, iw, kh, kw, oc, pad_h, pad_w, stride_h, stride_w, oh, ow);
 
     // params.act_type = CONV2D_BIAS_ADD_RELU;
     // cutlass_nhwc_conv_residual(params);
 
-    params.act_type = IDENTITY;
-    cutlass_nhwc_conv_depthwise(params);
+    //params.act_type = IDENTITY;
+    //cutlass_nhwc_conv_depthwise(params);
     
+    //params.act_type = IDENTITY;
+    //my_nchw_cov2d_depthwise(params);
+
     // params.act_type = SILU;
     // cutlass_group_conv_bias_swish(params);
   }
