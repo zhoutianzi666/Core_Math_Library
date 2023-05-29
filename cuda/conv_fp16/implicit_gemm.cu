@@ -15,6 +15,12 @@ using namespace nvcuda;
 using DATATYPE = half;
 using DATATYPE = half;
 using ACCU_DATATYPE = float;
+
+#define block_M 64
+#define block_N 16
+#define block_K 16
+
+// 显然warp_K 一定恒等于 block_K
 #define warp_M 16
 #define warp_N 16
 #define warp_K 16
@@ -36,25 +42,31 @@ __global__ void my_implicit_gemm_kernel(const half *input, const half *weight,
   int N = oc;
   int K = ic * kh * kw;
   // 当前thread block需要得到的输出矩阵的行地址和列地址
-  int m_0 = blockIdx.x * warp_M;
-  int n_0 = blockIdx.y * warp_N;
+  int m_0 = blockIdx.x * block_M;
+  int n_0 = blockIdx.y * block_N;
 
   if (m_0 >= M || n_0 >= N) return;
 
-  __shared__ half aTile[warp_M][warp_K];
-  __shared__ half bTile[warp_K][warp_N];
-  __shared__ float cTile[warp_M][warp_N];
+  __shared__ half aTile[block_M][block_K];
+  __shared__ half bTile[block_K][block_N];
 
-for(int i = 0;i<warp_M;i++) {
-    for(int j = 0;j<warp_N;j++)
-    {
-        cTile[i][j]=0;
-    }
-}
+  // 这里必须要定义cTile的块，由于你使用了wmma！
+  // wmma的c_frag是个float，没办法直接写到output中！
+  __shared__ float cTile[block_M][block_N];
 
-  wmma::fragment<wmma::matrix_a, warp_M, warp_N, warp_K, DATATYPE, wmma::row_major> a_frag;
-  wmma::fragment<wmma::matrix_b, warp_M, warp_N, warp_K, DATATYPE, wmma::row_major> b_frag;
-  wmma::fragment<wmma::accumulator, warp_M, warp_N, warp_K, ACCU_DATATYPE> c_frag;
+  //   if(threadIdx.x == 0) {
+
+  // for(int i = 0;i<block_M;i++) {
+  //     for(int j = 0;j<block_N;j++)
+  //     {
+  //         cTile[i][j]=0;
+  //     }
+  // }
+  //   }
+
+  wmma::fragment<wmma::matrix_a, warp_M, warp_K, block_K, DATATYPE, wmma::row_major> a_frag;
+  wmma::fragment<wmma::matrix_b, warp_K, warp_N, block_N, DATATYPE, wmma::row_major> b_frag;
+  wmma::fragment<wmma::accumulator, warp_M, warp_N, block_N, ACCU_DATATYPE> c_frag;
   wmma::fill_fragment(c_frag, 0.0f);
 
 
@@ -68,14 +80,13 @@ for(int i = 0;i<warp_M;i++) {
   int oc_0 = n_0;
   
   const int tidx = threadIdx.x;
-  // 这么多线程去搬数据吧！
 
-  for (int k_0 = 0; k_0 < K; k_0 += warp_K) {
-    
-    // 每个thread 搬运四个数字
-    for(int i = tidx; i < warp_M * warp_K; i += 32) {
-        int aTile_row = i / warp_K;
-        int aTile_col = i % warp_K;
+  for (int k_0 = 0; k_0 < K; k_0 += block_K) {
+
+    // 每个thread 搬运多个数字
+    for(int i = tidx; i < block_M * block_K; i += blockDim.x) {
+        int aTile_row = i / block_K;
+        int aTile_col = i % block_K;
         aTile[aTile_row][aTile_col] = 0;
         
         int m_real = m_0 + aTile_row;
@@ -109,9 +120,9 @@ for(int i = 0;i<warp_M;i++) {
 
     __syncthreads();
 
-    for(int i = tidx; i < warp_K * warp_N; i += 32) {
-        int bTile_row = i / warp_N;
-        int bTile_col = i % warp_N;
+    for(int i = tidx; i < block_K * block_N; i += blockDim.x) {
+        int bTile_row = i / block_N;
+        int bTile_col = i % block_N;
         int k_real = k_0 + bTile_row;
         int n_real = n_0 + bTile_col;
         bTile[bTile_row][bTile_col] = *(weight + k_real + n_real * K);
@@ -126,27 +137,41 @@ for(int i = 0;i<warp_M;i++) {
     __syncthreads();
 
     // if(tidx == 0) {
-    //     for(int i = 0; i < warp_M ; i++) {
-    //         for(int j = 0; j < warp_N ; j++) {
+    //     for(int i = 0; i < block_M ; i++) {
+    //         for(int j = 0; j < block_N ; j++) {
     //             float sum = 0;
-    //             for(int k = 0; k < warp_K ; k++) {
+    //             for(int k = 0; k < block_K ; k++) {
     //                 sum += __half2float(aTile[i][k]) * __half2float(bTile[k][j]);
     //             }
     //             cTile[i][j] += (sum);
     //         }
     //     }
     // }
+    // __syncthreads();
+    
+    // 当前的cuda thread所属的局部（单个thread block内）warp id
+    int warp_id = threadIdx.x / 32;
+    int warp_row = warp_id / (block_N / warp_N);
+    int warp_col = warp_id % (block_N / warp_N);
 
-    wmma::load_matrix_sync(a_frag, &aTile[0][0], warp_K);
-    wmma::load_matrix_sync(b_frag, &bTile[0][0], warp_N);
+    wmma::load_matrix_sync(a_frag, &aTile[warp_row * warp_M][0], block_K);
+    wmma::load_matrix_sync(b_frag, &bTile[0][warp_col * warp_N], block_N);
     wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
     __syncthreads();
-  }
-    wmma::store_matrix_sync(&cTile[0][0], c_frag, warp_N, wmma::mem_row_major);
 
-  for(int i = tidx; i < warp_M * warp_N; i += 32) {
-    int cTile_row = i / warp_N;
-    int cTile_col = i % warp_N;
+  }
+
+    // 当前的cuda thread所属的局部warp id
+    int warp_id = threadIdx.x / 32;
+    int warp_row = warp_id / (block_N / warp_N);
+    int warp_col = warp_id % (block_N / warp_N);
+
+   wmma::store_matrix_sync(&cTile[warp_row * warp_M][warp_col * warp_N], c_frag, block_N, wmma::mem_row_major);
+   __syncthreads();
+
+  for(int i = tidx; i < block_M * block_N; i += blockDim.x) {
+    int cTile_row = i / block_N;
+    int cTile_col = i % block_N;
 
     int m_real = m_0 + cTile_row;
     int n_real = n_0 + cTile_col;
@@ -184,14 +209,9 @@ void my_implicit_gemm_gpu(ConvAllParams params) {
 
   int M = batch * oh * ow;
   int N = oc;
-  // 假设一个thread block里面只有一个warp。
-  constexpr int blockM = warp_M;
-  constexpr int blockN = warp_N;
-  uint3 block = {32, 1, 1};
-
-  uint3 grid = { (M + blockM - 1) / blockM, (N + blockN - 1) / blockN, 1};
-  // 当前假设threadblock中的每个thread计算一个输出哦！
   
+  uint3 grid = { (M + block_M - 1) / block_M, (N + block_N - 1) / block_N, 1};
+  uint3 block = {32 * (block_M / warp_M) * (block_N / warp_N), 1, 1};
   my_implicit_gemm_kernel<<<grid, block>>>(input, weight, bias, output,
   batch, ic, ih, iw, 
   kh, kw, oc, 
