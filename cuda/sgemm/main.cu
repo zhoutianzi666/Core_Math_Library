@@ -10,16 +10,13 @@
 #include "cublas_v2.h"
 #include "utility.h"
 
-#define WARMUP 0
-#define REPEATE 1
-
 using DATATYPE = float;
 using C_DATATYPE = float;
 
 int main(void) {
-  int m = 5;
-  int n = 5;
-  int k = 9; 
+  int m = 5012*2;
+  int n = 1024;
+  int k = 5012*2; 
   cudaSetDevice(3);
 
   DATATYPE *a, *b;
@@ -31,13 +28,12 @@ int main(void) {
   init(b, k * n);
 
 // 为了搞清楚CUTLASS sgemm原理调试用的
-for (int i = 0; i < m * k ;i++)  {
-  a[i] = i;
-}
-
-for (int i = 0; i < k * n;i++) {
-  b[i] = i;
-}
+// for (int i = 0; i < m * k ;i++)  {
+//   a[i] = i;
+// }
+// for (int i = 0; i < k * n;i++) {
+//   b[i] = i;
+// }
 
   C_DATATYPE *c;
   c = (C_DATATYPE *)malloc(sizeof(C_DATATYPE) * m * n);
@@ -68,6 +64,9 @@ for (int i = 0; i < k * n;i++) {
   cudaEventCreate(&end);
   cudaEventRecord(beg);
 
+  constexpr int WARMUP =  10;
+  constexpr int REPEATE =  100;
+
   for (int i = 0; i < WARMUP + REPEATE; i++) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
@@ -78,9 +77,9 @@ for (int i = 0; i < k * n;i++) {
       cudaEventRecord(beg);
     }
 
-    CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    // cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
-    // matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
+    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
+    //matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block_combine_access(dev_a, dev_b, dev_c, m, n, k);

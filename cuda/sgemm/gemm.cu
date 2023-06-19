@@ -38,6 +38,7 @@ __global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
   const int col0_in_block = (blockIdx.y * blockDim.y) * cuda_N;
   
   __shared__ DATATYPE aTile[block_K][block_M * cuda_M];
+  //__shared__ DATATYPE aTile[block_M * cuda_M][block_K];
   __shared__ DATATYPE bTile[block_K][block_N * cuda_N];
   // 记住C不需要shared memory哦！
   DATATYPE cTile[cuda_M][cuda_N] = {0};
@@ -56,6 +57,7 @@ __global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
       int aTile_y = id % block_K;
       // 我好奇，这里难道不会有bank 冲突吗？应该是会有的吧。
       aTile[aTile_y][aTile_x] = a[(aTile_x + row0_in_block) * k + aTile_y + i];
+      //aTile[aTile_x][aTile_y] = a[(aTile_x + row0_in_block) * k + aTile_y + i];
     }
 
     for(int id = thread_id_in_block; id < block_K * block_N * cuda_N; id += block_M * block_N) {
@@ -72,11 +74,13 @@ __global__ void kernel_gpu(DATATYPE *a, DATATYPE *b, DATATYPE *c, int m, int n,
     // 也就是计算一个（block_M* cuda_M） * block_K 与 block_K * （block_N* cuda_N） 的矩阵乘积了
     // 下面就是肯定要考虑block_M* cuda_M）和 （block_N* cuda_M） 这个输出矩阵在thread block里面的划分了哦！
     // 这里的划分方式显然是cuda_M * cuda_N个东西紧紧的挤在一起喽！
+    // 绝对不可能是每个cuda thread只算1x1个输出，因为这导致每个cuda thread的计算访存比很低的。
     // 如果有tensor core，我们还应该考虑warp level哦！
     for (int j = 0; j < block_K; j++) {
 #pragma unroll
       for (int cTile_i = 0; cTile_i < cuda_M; cTile_i++) {
         a_reg[cTile_i] = aTile[j][row_in_block + cTile_i];
+        //a_reg[cTile_i] = aTile[row_in_block + cTile_i][j];
       }
 #pragma unroll
       for (int cTile_j = 0; cTile_j < cuda_N; cTile_j++) {
