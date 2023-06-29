@@ -14,10 +14,10 @@ using DATATYPE = float;
 using C_DATATYPE = float;
 
 int main(void) {
-  int m = 5012*2;
-  int n = 1024;
-  int k = 5012*2; 
-  cudaSetDevice(3);
+  int m = 5120;
+  int n = 5120;
+  int k = 5120; 
+  cudaSetDevice(0);
 
   DATATYPE *a, *b;
   a = (DATATYPE *)malloc(sizeof(DATATYPE) * m * k);
@@ -77,8 +77,9 @@ int main(void) {
       cudaEventRecord(beg);
     }
 
-    // CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
+    //CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassSgemmNN_tf32(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    //cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
     //matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
@@ -105,7 +106,7 @@ int main(void) {
 
   time1 = (double)clock() / CLOCKS_PER_SEC;
   today = system_clock::now();
-
+//exit(0);
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
   naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k);

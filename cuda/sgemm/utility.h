@@ -22,4 +22,7 @@ void matmul_gpu_naive_block_combine_access(float *dev_a, float *dev_b,
 cudaError_t CutlassSgemmNN(int M, int N, int K, float alpha, float const *A,
                            int lda, float const *B, int ldb, float beta,
                            float *C, int ldc);
+cudaError_t CutlassSgemmNN_tf32(int M, int N, int K, float alpha, float const *A,
+                           int lda, float const *B, int ldb, float beta,
+                           float *C, int ldc);
 void cublas_matmul(cublasHandle_t& handle, float *dev_a, float *dev_b, float *dev_c, int m, int n, int k);
