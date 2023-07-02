@@ -78,8 +78,8 @@ int main(void) {
     }
 
     //CutlassSgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    CutlassSgemmNN_tf32(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
-    //cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
+    //CutlassSgemmNN_tf32(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    cublas_matmul(handle, dev_a, dev_b, dev_c, m, n , k);
     //matmul_gpu(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_megengine(dev_a, dev_b, dev_c, m, n, k);
     // matmul_gpu_naive_block(dev_a, dev_b, dev_c, m, n, k);
