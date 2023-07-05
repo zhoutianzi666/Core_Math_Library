@@ -21,7 +21,10 @@ for i in range(REPEATE):
 
 endtime = datetime.datetime.now()
 duringtime = endtime - starttime
-print (duringtime.seconds * 1000 + duringtime.microseconds / 1000.0)# 单位是毫秒
+ms = duringtime.seconds * 1000 + duringtime.microseconds / 1000.0
+print (ms)# 单位是毫秒
 paddle.device.cuda.synchronize(paddle.CUDAPlace(0))
+Gflops = REPEATE * (m * n * k * 2 / 1000000) / ms
+print("Gflops: ", Gflops);
 
 
