@@ -15,8 +15,8 @@ def gemm_flops(shape):
         n=shape
         k=shape
 
-    WARMUP =  10
-    REPEATE =  1000
+    WARMUP =  0
+    REPEATE =  1
     A = paddle.rand((m, k))
     B = paddle.rand((k, n))
     for i in range(WARMUP):
@@ -37,8 +37,23 @@ def gemm_flops(shape):
     #print (ms)# 单位是毫秒
     Tflops = REPEATE * (m * n * k * 2 / 1000000000) / ms
     return Tflops
-    #print("Gflops: ", Gflops)
+    #print("Tflops: ", Tflops)
 
 for n in [128, 256, 512, 1024, 2048, 4096]:
     print(gemm_flops(n))
+
+
+# def f(x, y):
+#     return paddle.matmul(x, y)
+
+# model = paddle.jit.to_static(
+#     f,
+#     input_spec=[paddle.static.InputSpec(shape=[1, 3, 1024, 1024], dtype="float32"),
+#     paddle.static.InputSpec(shape=[1, 3, 1024, 1024], dtype="float32"),
+#     ],
+#     )
+# save_path = "./checkpoints/infer"
+# paddle.jit.save(model, save_path)
+# print(f"static model has been to {save_path}")
+
 
