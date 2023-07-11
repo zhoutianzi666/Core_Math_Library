@@ -21,6 +21,11 @@ cudaError_t CutlassIgemmNN(int M, int N, int K,
                            DATATYPE const *B, int ldb, 
                            float const *bias,
                            C_DATATYPE *C, int ldc);
+cudaError_t CutlassIgemmNN_sm80(int M, int N, int K,
+                           DATATYPE const *A, int lda, 
+                           DATATYPE const *B, int ldb, 
+                           float const *bias,
+                           C_DATATYPE *C, int ldc);
 cudaError_t GemmWithBroadcast(int M, int N, int K, 
                               DATATYPE const *A, int lda, 
                               DATATYPE const *B, int ldb,
