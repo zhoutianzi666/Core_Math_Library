@@ -9,15 +9,18 @@ void init(int8_t *a, int size) {
   }
 }
 
+void init(int32_t *a, int size) {
+  for (int i = 0; i < size; i++) {
+    a[i] = rand() % 9999 - 4;
+  }
+}
+
 void init(float *a, int size) {
   for (int i = 0; i < size; i++) {
     a[i] = rand() % 512 / 256.f;
   }
 }
 
-// a : row
-// b : col
-// c: row
 template <typename T>
 void naive_gemm_cpu(const int8_t *a, const int8_t *b, T *c_cpu, int m,
                     int n, int k, const T* broadcast) {
@@ -25,9 +28,13 @@ void naive_gemm_cpu(const int8_t *a, const int8_t *b, T *c_cpu, int m,
     for (int j = 0; j < n; j++) {
       T sum = 0;
       for (int ii = 0; ii < k; ii++) {
-        sum += a[i * k + ii] * b[ii + j * k];
+        // 假设b是row的
+        //sum += a[i * k + ii] * b[ii + j * k];
+        // 假设这里b是col的
+        sum += a[i * k + ii] * b[ii * n + j];
       }
-      sum += broadcast[j];
+      // 如果有bias
+      //sum += broadcast[j];
       c_cpu[i * n + j] = sum ;
     }
   }

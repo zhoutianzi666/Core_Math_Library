@@ -19,10 +19,10 @@ void CUDA_CHECK(cudaError_t status) {
 }
 
 int main(void) {
-  int m = 512 * 2;
-  int n = 512 * 1;
-  int k = 512 * 3;
-
+  int m = 5120;
+  int n = 5120;
+  int k = 5120;
+  cudaSetDevice(6);
   DATATYPE *a, *b;
   BROADCAST_DATATYPE *broadcast;
 
@@ -76,7 +76,9 @@ int main(void) {
       cudaEventCreate(&end);
       cudaEventRecord(beg);
     }
-    CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
+    //CutlassIgemmNN(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
+    //CutlassIgemmNN_sm80(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
+    CublasIgemmNN(handle, m, n, k, dev_a, k, dev_b, n, dev_broadcast, dev_c, n);
     // A是行存储，B是列存储，C是行存储
     //GemmWithBroadcast(n, m, k, dev_a, k, dev_b, k, dev_broadcast, dev_c, n);
   }
@@ -103,7 +105,7 @@ int main(void) {
 
   // 这个是CPU上的baseline的数据类型！
   // 输出要么是fp32，要么是int32！
-  using C_base_DATATYPE = float;
+  using C_base_DATATYPE = int32_t;
   C_base_DATATYPE *c_cpu_32 = (C_base_DATATYPE *)malloc(sizeof(C_base_DATATYPE) * m * n);
   memset(c_cpu_32, 0, sizeof(C_base_DATATYPE) * m * n);
   naive_gemm_cpu(a, b, c_cpu_32, m, n, k, broadcast);
