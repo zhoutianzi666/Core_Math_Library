@@ -248,8 +248,12 @@ void dispatch_gemm_to_cutlass(const T*          A,
     // Note that SIMT configs are omitted here since they are not supported for fpA_intB.
     // We also only instantiate configs here where threadblockShapeM == warpShapeM since those usually perform the best
     // for mixed type gemms.
+    // 1,2 ok!
+    // 3 not ok!
+    // 4,5报错
     switch (gemm_config.tile_config) {
         case CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64:
+            printf("选择了 CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64\n");
             dispatch_gemm_config<T,
                                  WeightType,
                                  arch,
@@ -259,6 +263,7 @@ void dispatch_gemm_to_cutlass(const T*          A,
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64:
+            printf("选择了 CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64\n");
             dispatch_gemm_config<T,
                                  WeightType,
                                  arch,
@@ -268,6 +273,7 @@ void dispatch_gemm_to_cutlass(const T*          A,
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64:
+        printf("选择了 CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64\n");
             dispatch_gemm_config<T,
                                  WeightType,
                                  arch,
@@ -278,6 +284,7 @@ void dispatch_gemm_to_cutlass(const T*          A,
             break;
         // config for M_16000_N_12288_K_6144 in encoder
         case CutlassTileConfig::CtaShape256x128x64_WarpShape64x64x64:
+            printf("选择了 CutlassTileConfig::CtaShape256x128x64_WarpShape64x64x64\n");
             dispatch_gemm_config<T,
                                  WeightType,
                                  arch,
@@ -287,6 +294,7 @@ void dispatch_gemm_to_cutlass(const T*          A,
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64:
+            printf("选择了 CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64:\n");
             dispatch_gemm_config<T,
                                  WeightType,
                                  arch,
@@ -408,7 +416,7 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(const T*    
                                                                             workspace_bytes,
                                                                             multi_processor_count_,
                                                                             is_weight_only);
-
+    printf("启发式搜索完毕，开始选择策略了");
     dispatch_to_arch<EpilogueTag>(
         A, B, weight_scales, biases, C, m, n, k, chosen_config, workspace_ptr, workspace_bytes, stream);
 }
@@ -519,185 +527,4 @@ template class CutlassFpAIntBGemmRunner<__nv_bfloat16, uint8_t>;
 template class CutlassFpAIntBGemmRunner<float, cutlass::uint4b_t>;
 template class CutlassFpAIntBGemmRunner<half, cutlass::uint4b_t>;
 template class CutlassFpAIntBGemmRunner<__nv_bfloat16, cutlass::uint4b_t>;
-
-
-
-// #include <stdio.h>
-
-// #include <chrono>
-// #include <ctime>
-// #include <iostream>
-// #include <ratio>
-
-// #include "cublas_v2.h"
-
-// #define WARMUP 10
-// #define REPEATE 10
-
-// using DATATYPE = half;
-// using B_DATATYPE = int8_t;
-// using scale_DATATYPE = float;
-
-// void CUDA_CHECK(cudaError_t status) {
-//   if (status != cudaSuccess) {
-//     printf("分配paged内存失败\n");
-//   }
-// }
-
-// void init(int8_t *a, int size) {
-//     for (int i = 0; i < size; i++) {
-//       a[i] = rand() % 128 - 64;
-//     }
-// }
-  
-// void init(half *a, int size) {
-//     for (int i = 0; i < size; i++) {
-//         a[i] = (half)(rand() % 512 / 256.f);
-//     }
-// }
-
-// void init(float *a, int size) {
-//     for (int i = 0; i < size; i++) {
-//         a[i] = (rand() % 512 / 256.f);
-//     }
-// }
-
-
-// int main1(void) {
-//   int m = 170;
-//   int n = 15360;
-//   int k = 5120;
-
-//   // a,b,c is in cpu place!
-//   DATATYPE *a;
-//   B_DATATYPE *b,*origin_b;
-//   scale_DATATYPE *scale;
-//   DATATYPE *c;
-
-//   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
-//   CUDA_CHECK(status);
-//   status = cudaMallocHost(&b, sizeof(B_DATATYPE) * k * n);
-//   CUDA_CHECK(status);
-//   status = cudaMallocHost(&c, sizeof(DATATYPE) * m * n);
-//   CUDA_CHECK(status);
-//   memset(c, 0, sizeof(DATATYPE) * m * n);
-//   status = cudaMallocHost(&scale, sizeof(scale_DATATYPE) * n);
-//   CUDA_CHECK(status);
-//   memset(scale, 0, sizeof(scale_DATATYPE) * n);
-
-//   init(a, m * k);
-//   init(b, k * n);
-//   memcpy(origin_b, b, k * n);
-  
-//   for(int i =0 ; i < k *n;i++)
-//   {
-//     b[i] = (b[i] + 128);
-//   }
-
-//   for(int i =0 ; i < k *n;i += 4)
-//   {
-//     auto tmp = b[i + 1];
-//     b[i + 1] = b[i + 2];
-//     b[i + 2] = tmp;
-//   }
-
-//   init(c, m * n);
-//   init(scale, n);
-
-//   DATATYPE *dev_a;
-//   B_DATATYPE *dev_b;
-//   scale_DATATYPE *dev_scale;
-//   DATATYPE *dev_c;
-
-
-//   double time1 = (double)clock() / CLOCKS_PER_SEC;
-//   using std::chrono::system_clock;
-//   system_clock::time_point today = system_clock::now();
-
-//   // allocate the memory on the GPU and copy a and b to GPU
-//   cudaMalloc((void **)&dev_a, m * k * sizeof(DATATYPE));
-//   cudaMalloc((void **)&dev_b, k * n * sizeof(B_DATATYPE));
-//   cudaMalloc((void **)&dev_scale, n * sizeof(scale_DATATYPE));
-//   cudaMalloc((void **)&dev_c, m * n * sizeof(DATATYPE));
-//   cudaMemcpy(dev_a, a, m * k * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-//   cudaMemcpy(dev_b, b, k * n * sizeof(B_DATATYPE), cudaMemcpyHostToDevice);
-//   cudaMemcpy(dev_scale, scale, n * sizeof(scale_DATATYPE), cudaMemcpyHostToDevice);
-//   //cudaMemcpy(dev_c, c, m * n * sizeof(DATATYPE), cudaMemcpyHostToDevice);
-
-//   cudaEvent_t beg, end;
-//   auto int8_mixed_gemm_runner = CutlassFpAIntBGemmRunner<half, uint8_t>();
-
-//   cudaStream_t stream;
-//   cudaStreamCreate(&stream);
-//   char* workspace = nullptr;
-
-
-//   for (int i = 0; i < REPEATE + REPEATE; i++) {
-//     if (i == WARMUP) {
-//       cudaEventCreate(&beg);
-//       cudaEventCreate(&end);
-//       cudaEventRecord(beg);
-//     }
-//     int8_mixed_gemm_runner.gemm(   dev_a,
-//                                    (const uint8_t*)dev_b,
-//                                    dev_scale,
-//                                    dev_c,
-//                                    m,n,k,
-//                                    nullptr,0,stream);
-//   }
-
-//   cudaEventRecord(end);
-//   cudaEventSynchronize(end);
-//   float elapsed_time;
-//   cudaEventElapsedTime(&elapsed_time, beg, end);
-//   printf("gpu gemm compute time: %f\n", elapsed_time);
-
-// //   double time2 = (double)clock() / CLOCKS_PER_SEC;
-// //   system_clock::time_point now = system_clock::now();
-// //   auto ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-// //   std::cout << "gpu total time:" << ts.count() / 1000.0 << "ms" << std::endl;
-// //   printf("gpu total time:%lf\n", double(time2 - time1) * 1000);
-
-// //   time1 = (double)clock() / CLOCKS_PER_SEC;
-// //   today = system_clock::now();
-
-// half *c_cpu_fp16 = (half *)malloc(sizeof(half) * m * n);
-// half *c_from_gpu = (half *)malloc(sizeof(half) * m * n);
-
-// cudaMemcpy(c_from_gpu, dev_c, m * n * sizeof(half), cudaMemcpyDeviceToHost);
-
-// for(int ii = 0; ii < m;ii++)
-// {
-//     for (int jj = 0; jj < n; jj++)
-//     {
-//         float sum = 0.f;
-//         for(int kk = 0; kk < k; kk++) {
-//             int to_address = kk * n + jj;
-//             sum +=  scale[jj] * (int)(origin_b[to_address]) * (float)(a[ii * k + kk]);
-//         }
-//         c_cpu_fp16[ii * n + jj] = (half)(sum);
-//         float tmp =  (float)(c_from_gpu[ii * n + jj]);
-//         std::cout << tmp << " " << sum << std::endl; 
-//         exit(0);
-//     }
-// }
-
-
-
-// //   time2 = (double)clock() / CLOCKS_PER_SEC;
-// //   now = system_clock::now();
-// //   ts = std::chrono::duration_cast<std::chrono::microseconds>(now - today);
-// //   std::cout << "cpu time:" << ts.count() / 1000.0 << "ms" << std::endl;
-// //   printf("cpu time:%lf\n", double(time2 - time1) * 1000);
-
-// //   printf("max_diff: %f\n", diff(c, c_cpu_fp32, m * n));
-
-// //   cudaDeviceReset();
-// //   cudaFreeHost(a);
-// //   cudaFreeHost(b);
-// //   cudaFreeHost(c);
-// //   free(c_cpu_fp32);
-//   return 0;
-// }
-
 

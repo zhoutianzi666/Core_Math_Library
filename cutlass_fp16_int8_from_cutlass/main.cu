@@ -11,8 +11,8 @@
 #include <iostream>
 #include <ratio>
 
-#define WARMUP 10
-#define REPEATE 10
+#define WARMUP 0
+#define REPEATE 1
 
 using DATATYPE = half;
 using B_DATATYPE = int8_t;
@@ -26,25 +26,25 @@ void CUDA_CHECK(cudaError_t status) {
 
 void init(int8_t *a, int size) {
     for (int i = 0; i < size; i++) {
-      a[i] = rand() % 128 - 64;
+      a[i] = rand() % 256 - 128;
     }
 }
   
 void init(half *a, int size) {
     for (int i = 0; i < size; i++) {
-        a[i] = (half)(rand() % 512 / 256.f);
+        a[i] = (half)(rand() % 256 / 2560.f);
     }
 }
 
 void init(float *a, int size) {
     for (int i = 0; i < size; i++) {
-        a[i] = (rand() % 512 / 256.f);
+        a[i] = 0.1;
     }
 }
 
 
 int main(void) {
-  int m = 170;
+  int m = 85;
   int n = 15360;
   int k = 5120;
 
@@ -65,12 +65,12 @@ int main(void) {
   memset(c, 0, sizeof(DATATYPE) * m * n);
   status = cudaMallocHost(&scale, sizeof(scale_DATATYPE) * n);
   CUDA_CHECK(status);
-  memset(scale, 0, sizeof(scale_DATATYPE) * n);
 
   init(a, m * k);
   init(b, k * n);
   memcpy(origin_b, b, k * n);
   
+  // 将b更新一下，用来调用cutlass！
   for(int i =0 ; i < k *n;i++) {
     b[i] = (b[i] + 128);
   }
@@ -140,12 +140,12 @@ half *c_from_gpu = (half *)malloc(sizeof(half) * m * n);
 
 cudaMemcpy(c_from_gpu, dev_c, m * n * sizeof(half), cudaMemcpyDeviceToHost);
 
+
 float max_diff = -10;
 
-for(int ii = 0; ii < m;ii++)
-{
-    for (int jj = 0; jj < n; jj++)
-    {
+
+for(int ii = 64; ii < m;ii+=100) {
+    for (int jj = 0; jj < n; jj++) {
         float sum = 0.f;
         for(int kk = 0; kk < k; kk++) {
             int to_address = kk * n + jj;
@@ -153,23 +153,25 @@ for(int ii = 0; ii < m;ii++)
         }
         c_cpu_fp16[ii * n + jj] = (half)(sum);
         float tmp =  (float)(c_from_gpu[ii * n + jj]);
-        //std::cout << tmp << " " << sum << std::endl; 
         if (std::abs(tmp - sum) > max_diff)
         {
             max_diff = std::abs(tmp - sum);
             std::cout << max_diff << std::endl;
             std::cout << tmp << " " <<  sum << std::endl;
+            std::cout << ii << " " <<  jj << std::endl;
         }
     }
 }
 
 printf("max_diff : %f\n", max_diff);
 
-//   cudaDeviceReset();
-//   cudaFreeHost(a);
-//   cudaFreeHost(b);
-//   cudaFreeHost(c);
-//   free(c_cpu_fp32);
+  cudaFreeHost(dev_a);
+  cudaFreeHost(dev_b);
+  cudaFreeHost(dev_scale);
+  cudaFreeHost(dev_c);
+  free(c_cpu_fp16);
+  free(c_from_gpu);
+  cudaDeviceReset();
   return 0;
 }
 

@@ -310,6 +310,10 @@ struct GemmFpAIntB {
         static void run_kernel(Params const& params, SharedStorage& shared_storage)
         {
             using LayoutB = typename Mma::IteratorB::Layout;
+            if(platform::is_same<LayoutB, layout::RowMajor>::value)
+            {
+                printf("B的layout是layout::RowMajor");
+            }
             static_assert(platform::is_same<LayoutB, layout::RowMajor>::value && kInterleave == 1
                               || platform::is_same<LayoutB, layout::ColumnMajor>::value && kInterleave >= 1,
                           "B must be row major/col major OR col major interleaved.");
