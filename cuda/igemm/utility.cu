@@ -28,13 +28,13 @@ void naive_gemm_cpu(const int8_t *a, const int8_t *b, T *c_cpu, int m,
     for (int j = 0; j < n; j++) {
       T sum = 0;
       for (int ii = 0; ii < k; ii++) {
-        // 假设b是row的
-        //sum += a[i * k + ii] * b[ii + j * k];
-        // 假设这里b是col的
-        sum += a[i * k + ii] * b[ii * n + j];
+        // 假设b是col的
+        sum += a[i * k + ii] * b[ii + j * k];
+        // 假设这里b是row的
+        // sum += a[i * k + ii] * b[ii * n + j];
       }
       // 如果有bias
-      //sum += broadcast[j];
+      sum += broadcast[j];
       c_cpu[i * n + j] = sum ;
     }
   }

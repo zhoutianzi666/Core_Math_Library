@@ -9,7 +9,7 @@ include_directories("../../cutlass/include")
 
 # nvcc flags
 # cutlass 2.11 
-set(CUDA_NVCC_FLAGS -gencode arch=compute_80,code=sm_80;)
+set(CUDA_NVCC_FLAGS -g -gencode arch=compute_75,code=sm_75;)
 
 CUDA_ADD_EXECUTABLE(a.out ${all_cu})
 target_link_libraries(a.out cublas)
