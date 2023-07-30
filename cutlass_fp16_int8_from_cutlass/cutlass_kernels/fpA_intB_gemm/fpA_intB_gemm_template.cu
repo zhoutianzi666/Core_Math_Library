@@ -258,8 +258,8 @@ void dispatch_gemm_to_cutlass(const T*          A,
                                  WeightType,
                                  arch,
                                  EpilogueTag,
-                                 cutlass::gemm::GemmShape<32, 128, 64>,
-                                 cutlass::gemm::GemmShape<32, 32, 64>>(
+                                 cutlass::gemm::GemmShape<128, 128, 64>,
+                                 cutlass::gemm::GemmShape<128, 32, 64>>(
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64:
@@ -268,8 +268,8 @@ void dispatch_gemm_to_cutlass(const T*          A,
                                  WeightType,
                                  arch,
                                  EpilogueTag,
-                                 cutlass::gemm::GemmShape<64, 128, 64>,
-                                 cutlass::gemm::GemmShape<64, 32, 64>>(
+                                 cutlass::gemm::GemmShape<128, 128, 64>,
+                                 cutlass::gemm::GemmShape<128, 32, 64>>(
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64:
@@ -324,6 +324,7 @@ CutlassFpAIntBGemmRunner<T, WeightType>::CutlassFpAIntBGemmRunner()
     int device{-1};
     check_cuda_error(cudaGetDevice(&device));
     sm_ = getSMVersion();
+    sm_ = 70;
     check_cuda_error(cudaDeviceGetAttribute(&multi_processor_count_, cudaDevAttrMultiProcessorCount, device));
 }
 
@@ -417,8 +418,21 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(const T*    
                                                                             multi_processor_count_,
                                                                             is_weight_only);
     printf("启发式搜索完毕，开始选择策略了");
+
+
+    CutlassGemmConfig    chosen_config1 = {
+        CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64,
+        SplitKStyle::NO_SPLIT_K,
+        1,
+        2
+    };
+    printf("启发式搜索完毕，开始执行最佳策略了\n");
+    std::cout << "chosen_config.stages:" << chosen_config1.stages << std::endl;
+    std::cout << "chosen_config.split_k_factor" << chosen_config1.split_k_factor << std::endl;
+    std::cout << "chosen_config.tile_config:" << (int)(chosen_config1.tile_config) << std::endl;
+    
     dispatch_to_arch<EpilogueTag>(
-        A, B, weight_scales, biases, C, m, n, k, chosen_config, workspace_ptr, workspace_bytes, stream);
+        A, B, weight_scales, biases, C, m, n, k, chosen_config1, workspace_ptr, workspace_bytes, stream);
 }
 
 template<typename T, typename WeightType>

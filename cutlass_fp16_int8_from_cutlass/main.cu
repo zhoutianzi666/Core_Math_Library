@@ -108,7 +108,7 @@ int main(void) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  for (int i = 0; i < REPEATE + REPEATE; i++) {
+  for (int i = 0; i < WARMUP + REPEATE; i++) {
     if (i == WARMUP) {
       cudaEventCreate(&beg);
       cudaEventCreate(&end);
@@ -144,7 +144,7 @@ cudaMemcpy(c_from_gpu, dev_c, m * n * sizeof(half), cudaMemcpyDeviceToHost);
 float max_diff = -10;
 
 
-for(int ii = 64; ii < m;ii+=100) {
+for(int ii = 65; ii < m;ii+=100) {
     for (int jj = 0; jj < n; jj++) {
         float sum = 0.f;
         for(int kk = 0; kk < k; kk++) {
