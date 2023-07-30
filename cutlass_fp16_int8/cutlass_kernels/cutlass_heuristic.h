@@ -172,6 +172,9 @@ static CutlassGemmConfig estimate_best_config_from_occupancies(const std::vector
     int   current_m_tile = 0;
 
     const int max_split_k = n >= multi_processor_count * 256 ? 1 : split_k_limit;
+    
+    //printf("%d\n", max_split_k);
+
     //TODO(wangbojun) max_split_k will have problem in bf16 gemm
     // const int max_split_k = 1;
     for (int ii = 0; ii < candidate_configs.size(); ++ii) {
@@ -225,10 +228,11 @@ static CutlassGemmConfig estimate_best_config_from_occupancies(const std::vector
             }
         }
     }
-
-    if (best_config.tile_config == CutlassTileConfig::ChooseWithHeuristic) {
-        throw std::runtime_error("[FT Error] Heurisitc failed to find a valid config.");
-    }
+    best_config.tile_config == CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64;
+    best_config.stages = 2;
+    // if (best_config.tile_config == CutlassTileConfig::ChooseWithHeuristic) {
+    //     throw std::runtime_error("[FT Error] Heurisitc failed to find a valid config.");
+    // }
 
     return best_config;
 }

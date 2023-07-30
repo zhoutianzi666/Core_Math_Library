@@ -227,9 +227,8 @@ struct GemmFpAIntB {
     CUTLASS_HOST_DEVICE
     static Status can_implement(Arguments const& args)
     {
-        if (1)
-        {
-
+        if (platform::is_same<typename Mma::IteratorA::Layout, layout::ColumnMajorInterleaved<32>>::value) {
+           printf("A 是 layout::ColumnMajorInterleaved<32>\n");
         }
         static int const kAlignmentA =
             (platform::is_same<typename Mma::IteratorA::Layout, layout::ColumnMajorInterleaved<32>>::value) ?
@@ -243,6 +242,16 @@ struct GemmFpAIntB {
             (platform::is_same<typename Mma::IteratorB::Layout, layout::RowMajorInterleaved<64>>::value) ?
                 64 :
                 Mma::IteratorB::AccessType::kElements;
+
+        if (platform::is_same<typename Mma::IteratorB::Layout, layout::RowMajorInterleaved<32>>::value) {
+             printf("B 是 layout::RowMajorInterleaved<32>\n");
+        }
+
+        if(platform::is_same<typename Mma::IteratorB::Layout, layout::RowMajor>::value) {
+            printf("B的layout是layout::RowMajor");
+        }
+
+        printf("B的layout是layout::RowMajor");
 
         static int const kAlignmentScale = Mma::IteratorScale::AccessType::kElements;
 
@@ -310,10 +319,6 @@ struct GemmFpAIntB {
         static void run_kernel(Params const& params, SharedStorage& shared_storage)
         {
             using LayoutB = typename Mma::IteratorB::Layout;
-            if(platform::is_same<LayoutB, layout::RowMajor>::value)
-            {
-                printf("B的layout是layout::RowMajor");
-            }
             static_assert(platform::is_same<LayoutB, layout::RowMajor>::value && kInterleave == 1
                               || platform::is_same<LayoutB, layout::ColumnMajor>::value && kInterleave >= 1,
                           "B must be row major/col major OR col major interleaved.");
@@ -485,9 +490,10 @@ struct GemmFpAIntB {
     CUTLASS_DEVICE
     void operator()(Params const& params, SharedStorage& shared_storage)
     {
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700) && (__CUDA_ARCH__ < 750)
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700) && (__CUDA_ARCH__ < 7050)
         static constexpr bool compile_needed = platform::is_same<KernelArch, arch::Sm70>::value;
         KernelRunner<compile_needed>::run_kernel(params, shared_storage);
+        printf("88888\n");
         //CUTLASS_NOT_IMPLEMENTED();
 
 #elif defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 750) && (__CUDA_ARCH__ < 800)
