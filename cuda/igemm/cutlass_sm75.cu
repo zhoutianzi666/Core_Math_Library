@@ -56,12 +56,12 @@ using Gemm = cutlass::gemm::device::Gemm<ElementInputA,
                                          SwizzleThreadBlock,
                                          NumStages>;
 
-cudaError_t CutlassIgemmNN(int M, int N, int K,
+cudaError_t CutlassIgemmNN_sm75(int M, int N, int K,
                            DATATYPE const *A, int lda, 
                            DATATYPE const *B,int ldb, 
                            float const *bias,
                            C_DATATYPE *C, int ldc) {
-  cutlass::gemm::GemmCoord problem_size(N, M, K);
+  cutlass::gemm::GemmCoord problem_size(M, N, K);
 
   // C = alpha * AB + beta * bias
   ElementComputeEpilogue alpha = ElementComputeEpilogue(1);

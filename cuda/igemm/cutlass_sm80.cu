@@ -61,7 +61,7 @@ cudaError_t CutlassIgemmNN_sm80(int M, int N, int K,
                            DATATYPE const *B,int ldb, 
                            float const *bias,
                            C_DATATYPE *C, int ldc) {
-  cutlass::gemm::GemmCoord problem_size(N, M, K);
+  cutlass::gemm::GemmCoord problem_size(M, N, K);
 
   // C = alpha * AB + beta * bias
   ElementComputeEpilogue alpha = ElementComputeEpilogue(1);
