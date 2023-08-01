@@ -324,7 +324,6 @@ CutlassFpAIntBGemmRunner<T, WeightType>::CutlassFpAIntBGemmRunner()
     int device{-1};
     check_cuda_error(cudaGetDevice(&device));
     sm_ = getSMVersion();
-    sm_ = 70;
     check_cuda_error(cudaDeviceGetAttribute(&multi_processor_count_, cudaDevAttrMultiProcessorCount, device));
 }
 
@@ -432,7 +431,7 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(const T*    
     std::cout << "chosen_config.tile_config:" << (int)(chosen_config1.tile_config) << std::endl;
     
     dispatch_to_arch<EpilogueTag>(
-        A, B, weight_scales, biases, C, m, n, k, chosen_config1, workspace_ptr, workspace_bytes, stream);
+        A, B, weight_scales, biases, C, m, n, k, chosen_config, workspace_ptr, workspace_bytes, stream);
 }
 
 template<typename T, typename WeightType>

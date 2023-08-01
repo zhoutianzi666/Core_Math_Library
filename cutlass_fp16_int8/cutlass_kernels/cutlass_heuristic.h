@@ -228,11 +228,10 @@ static CutlassGemmConfig estimate_best_config_from_occupancies(const std::vector
             }
         }
     }
-    best_config.tile_config == CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64;
-    best_config.stages = 2;
-    // if (best_config.tile_config == CutlassTileConfig::ChooseWithHeuristic) {
-    //     throw std::runtime_error("[FT Error] Heurisitc failed to find a valid config.");
-    // }
+
+    if (best_config.tile_config == CutlassTileConfig::ChooseWithHeuristic) {
+        throw std::runtime_error("[FT Error] Heurisitc failed to find a valid config.");
+    }
 
     return best_config;
 }
