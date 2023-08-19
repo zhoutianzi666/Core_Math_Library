@@ -258,8 +258,8 @@ void dispatch_gemm_to_cutlass(const T*          A,
                                  WeightType,
                                  arch,
                                  EpilogueTag,
-                                 cutlass::gemm::GemmShape<128, 128, 64>,
-                                 cutlass::gemm::GemmShape<128, 32, 64>>(
+                                 cutlass::gemm::GemmShape<32, 128, 64>,
+                                 cutlass::gemm::GemmShape<32, 32, 64>>(
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64:
@@ -268,8 +268,8 @@ void dispatch_gemm_to_cutlass(const T*          A,
                                  WeightType,
                                  arch,
                                  EpilogueTag,
-                                 cutlass::gemm::GemmShape<128, 128, 64>,
-                                 cutlass::gemm::GemmShape<128, 32, 64>>(
+                                 cutlass::gemm::GemmShape<64, 128, 64>,
+                                 cutlass::gemm::GemmShape<64, 32, 64>>(
                 A, B, weight_scales, biases, C, m, n, k, gemm_config, workspace, workspace_bytes, stream, occupancy);
             break;
         case CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64:
@@ -324,6 +324,7 @@ CutlassFpAIntBGemmRunner<T, WeightType>::CutlassFpAIntBGemmRunner()
     int device{-1};
     check_cuda_error(cudaGetDevice(&device));
     sm_ = getSMVersion();
+    // sm_ = 70;
     check_cuda_error(cudaDeviceGetAttribute(&multi_processor_count_, cudaDevAttrMultiProcessorCount, device));
 }
 

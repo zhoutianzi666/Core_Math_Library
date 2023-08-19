@@ -1,9 +1,11 @@
 project (a.out)
 cmake_minimum_required(VERSION 3.1...3.21 FATAL_ERROR)
 
-file(GLOB all_cu "*.cu")
+#file(GLOB all_cu "*.cu")
 find_package(CUDA)
-include_directories("/zhoukangkang/2022-04-28inference_try/cutlass/include")
+include_directories("../../cutlass/include")
 
-CUDA_ADD_EXECUTABLE(a.out ${all_cu})
+set(CUDA_NVCC_FLAGS -std=c++17;)
+#CUDA_ADD_EXECUTABLE(a.out ${all_cu})
+CUDA_ADD_EXECUTABLE(a.out PitchLinearWarpStripedThreadMap.cu)
 target_link_libraries(a.out cublas)
