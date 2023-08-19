@@ -7,9 +7,6 @@
 
 #include "utility.h"
 
-#define WARMUP 10
-#define REPEATE 10
-
 using DATATYPE = half;
 
 int main(void) {
@@ -45,16 +42,23 @@ int main(void) {
   cudaMemcpy(dev_input, input, input_size * sizeof(DATATYPE),
              cudaMemcpyHostToDevice);
 
-  for (int i = 0; i < WARMUP; i++) {
-    groupnorm_gpu(dev_out, dev_input, n, c, h, w, groups);
-  }
+  
+  constexpr int WARMUP =  10;
+  constexpr int REPEATE =  100;
 
   cudaEvent_t beg, end;
   cudaEventCreate(&beg);
   cudaEventCreate(&end);
   cudaEventRecord(beg);
 
-  for (int i = 0; i < REPEATE; i++) {
+  for (int i = 0; i < REPEATE + WARMUP; i++) {
+    
+    if (i == WARMUP) {
+      cudaEventCreate(&beg);
+      cudaEventCreate(&end);
+      cudaEventRecord(beg);
+    }
+
     groupnorm_gpu(dev_out, dev_input, n, c, h, w, groups);
   }
 
@@ -62,7 +66,7 @@ int main(void) {
   cudaEventSynchronize(end);
   float elapsed_time;
   cudaEventElapsedTime(&elapsed_time, beg, end);
-  printf("gpu layout time: %f\n", elapsed_time);
+  printf("gpu groupnorm time: %f\n", elapsed_time);
 
   cudaMemcpy(out_from_dev, dev_out, out_size * sizeof(DATATYPE),
              cudaMemcpyDeviceToHost);

@@ -288,29 +288,27 @@ void groupNormNCHW32Scale(const GroupNormNHWCParams &params) {
 void groupnorm_gpu(half *output, const half *input, int n, int c, int h,
     int w, int groups) {
 
-        GroupNormNHWCParams params;
-        params.srcX = (float*)input;
-        cudaMalloc((void **)&(params.redBuffer), sizeof(float) * n * groups * 2);
-        cudaMemset(params.redBuffer,
-          0,
-          2 * sizeof(float) *  n * groups);
-        params.cPerBlock = 320;
-        params.n = n;
-        params.c = c;
-        params.h = h;
-        params.w = w;
-        params.hw = h * w;
-        params.hwc = h*w*c;
-        params.hwPerBlock = h * w;
-        params.groupsPerBlock = 32;
-        params.groups = groups;
-        params.cPerGroup = c / groups;
-        params.invHWC = 1.f / (h * w * params.cPerGroup);
-        params.eps = 0.00005f;
-        params.dst = (float*)output;
-        groupNormNCHW32Sum(params);
-        groupNormNCHW32Scale(params);
-        cudaFree(params.redBuffer);
+    GroupNormNHWCParams params;
+    params.srcX = (float*)input;
+    cudaMalloc((void **)&(params.redBuffer), sizeof(float) * n * groups * 2);
+    cudaMemset(params.redBuffer, 0, 2 * sizeof(float) *  n * groups);
+    params.cPerBlock = 320;
+    params.n = n;
+    params.c = c;
+    params.h = h;
+    params.w = w;
+    params.hw = h * w;
+    params.hwc = h*w*c;
+    params.hwPerBlock = h * w;
+    params.groupsPerBlock = 32;
+    params.groups = groups;
+    params.cPerGroup = c / groups;
+    params.invHWC = 1.f / (h * w * params.cPerGroup);
+    params.eps = 0.00005f;
+    params.dst = (float*)output;
+    groupNormNCHW32Sum(params);
+    groupNormNCHW32Scale(params);
+    cudaFree(params.redBuffer);
 }
 
 

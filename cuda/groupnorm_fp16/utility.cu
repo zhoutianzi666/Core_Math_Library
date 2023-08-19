@@ -19,7 +19,7 @@ struct logical_struct {
   int w;
 };
 
-//
+// 
 int nchw32(struct logical_struct shape, struct logical_struct index) {
   return index.n * shape.c / 32 * shape.h * shape.w * 32 +
          index.c / 32 * shape.h * shape.w * 32 + index.h * shape.w * 32 +
