@@ -299,7 +299,9 @@ void groupnorm_gpu(half *output, const half *input, int n, int c, int h,
     params.w = w;
     params.hw = h * w;
     params.hwc = h*w*c;
-    params.hwPerBlock = h * w;
+    //  params.hwPerBlock 是个超参数，这个到底是多大呢？，下面我列出了两个极端！
+    // params.hwPerBlock = h * w
+    params.hwPerBlock = 1;
     params.groupsPerBlock = 32;
     params.groups = groups;
     params.cPerGroup = c / groups;
