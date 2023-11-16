@@ -77,9 +77,10 @@ int main(void) {
     const DATATYPE alpha = 1.0f;
     const DATATYPE beta = 0.0f;
 
-    GemmWithBroadcast(m, n, k, alpha, dev_a, k, dev_b, n, beta, dev_c, n, dev_broadcast);
+    // 而且这里带有激活函数哦，这里是relu
+    // GemmWithBroadcast(m, n, k, alpha, dev_a, k, dev_b, n, beta, dev_c, n, dev_broadcast);
 
-    //CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
+    CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
     //                           n,m,k,
     //                           &alpha,
@@ -117,7 +118,8 @@ int main(void) {
 
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
-  naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, broadcast);
+  //naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, broadcast, "relu");
+  naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, nullptr, "identity");
 
   time2 = (double)clock() / CLOCKS_PER_SEC;
   now = system_clock::now();

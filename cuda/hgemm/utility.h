@@ -1,11 +1,11 @@
 #include <cuda_fp16.h>
 
-
+#include <string>
 
 void init(float *a, int size);
 void init(half *a, int size);
 void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
-                    int n, int k, const half *broadcast);
+                    int n, int k, const half *broadcast, std::string act);
 void naive_gemm_cpu(const float *a, const float *b, float *c_cpu_fp32, int m,
                     int n, int k);
 float diff(const half *c, const float *c_baseline, int n);

@@ -29,7 +29,7 @@ void naive_gemm_cpu(const float *a, const float *b, float *c_cpu_fp32, int m,
 }
 
 void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
-                    int n, int k, const half *broadcast) {
+                    int n, int k, const half *broadcast, std::string act) {
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       double sum = 0.f;
@@ -40,7 +40,12 @@ void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
       {
         sum *= (float)broadcast[j];
       }
-      c_cpu_fp32[i * n + j] = sum > 0.f ? sum : 0.f;
+      if (act == "relu") {
+        c_cpu_fp32[i * n + j] = sum > 0.f ? sum : 0.f;
+      }
+      if (act == "identity") {
+        c_cpu_fp32[i * n + j] = sum ;
+      }
     }
   }
 }
