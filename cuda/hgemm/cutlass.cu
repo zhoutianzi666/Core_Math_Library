@@ -108,14 +108,34 @@ using Gemm = cutlass::gemm::device::Gemm<
     cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
     2, 
     8, 8 ,
-    false>;
+    true>;
+
+using Gemm_80 = cutlass::gemm::device::Gemm<
+  cutlass::half_t,
+  cutlass::layout::ColumnMajor,
+  cutlass::half_t,
+  cutlass::layout::ColumnMajor,
+  cutlass::half_t,
+  cutlass::layout::ColumnMajor,
+  float, 
+  cutlass::arch::OpClassTensorOp,
+  cutlass::arch::Sm80,
+  cutlass::gemm::GemmShape<128, 128, 32>,
+  cutlass::gemm::GemmShape<64, 64, 32>,
+  cutlass::gemm::GemmShape<16, 8, 16>,    
+  EpilogueOp, 
+  cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
+  2, 
+  8, 8 ,
+  true>;
+
 
 cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
                            DATATYPE const *A, int lda, DATATYPE const *B,
                            int ldb, DATATYPE beta, DATATYPE *C, int ldc) {
   cutlass::gemm::GemmCoord problem_size(M, N, K);
   // Split K dimension into 1 partitions
-  int split_k_slices = 1;
+  int split_k_slices = 2;
   typename Gemm::Arguments arguments{
       problem_size,               
       {(cutlass::half_t *)A, lda},  
@@ -129,6 +149,11 @@ cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
   // multiplication computation
   size_t workspace_size = Gemm::get_workspace_size(arguments);
   size_t bytes = Gemm::get_workspace_size(arguments);
+  printf("需要临时空间为: %d 字节\n", bytes);
+  if(split_k_slices == 1) {
+    assert(bytes == 0);
+  }
+
   void * workspace;
   cudaMalloc((void**)&workspace, bytes);
 
