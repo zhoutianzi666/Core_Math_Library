@@ -1,4 +1,6 @@
 # required: gpu
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import paddle
 paddle.set_device("gpu")
 
@@ -15,10 +17,10 @@ def gemm_flops(shape):
         n=shape
         k=shape
 
-    WARMUP =  0
-    REPEATE =  1
-    A = paddle.rand((m, k))
-    B = paddle.rand((k, n))
+    WARMUP =  10
+    REPEATE =  100
+    A = paddle.rand((m, k)).astype("float16")
+    B = paddle.rand((k, n)).astype("float16")
     for i in range(WARMUP):
         A_out = paddle.matmul(A, B)
 
@@ -35,7 +37,7 @@ def gemm_flops(shape):
     duringtime = endtime - starttime
     ms = duringtime.seconds * 1000 + duringtime.microseconds / 1000.0
     #print (ms)# 单位是毫秒
-    Tflops = REPEATE * (m * n * k * 2 / 1000000000) / ms
+    Tflops = REPEATE * (m * n * k * 2 / 10**12) / (ms/10**3)
     return Tflops
     #print("Tflops: ", Tflops)
 
