@@ -5,7 +5,16 @@ cmake_minimum_required(VERSION 3.1...3.21 FATAL_ERROR)
 find_package(CUDA)
 include_directories("../../cutlass/include")
 
+
+
+
+
 set(CUDA_NVCC_FLAGS -std=c++17;)
 #CUDA_ADD_EXECUTABLE(a.out ${all_cu})
-CUDA_ADD_EXECUTABLE(a.out PitchLinearWarpStripedThreadMap.cu)
+#CUDA_ADD_EXECUTABLE(a.out PitchLinearWarpStripedThreadMap.cu)
+#CUDA_ADD_EXECUTABLE(a.out PitchLinearStripminedThreadMap.cu)
+
+#CUDA_ADD_EXECUTABLE(a.out TensorOpMultiplicand.cu)
+CUDA_ADD_EXECUTABLE(a.out PitchLinearWarpRakedThreadMap.cu)
+
 target_link_libraries(a.out cublas)
