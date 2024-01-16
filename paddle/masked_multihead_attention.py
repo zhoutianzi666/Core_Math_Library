@@ -1,26 +1,27 @@
 import paddle
 from paddle.incubate.nn.functional import masked_multihead_attention
 
-heads = 16
+heads = 32
 kv_head = heads
-head_dim = 16
+head_dim = 128
 max_seq_len = 1280
 max_batch = 2
-cache_kv = paddle.rand((2, max_batch, kv_head, max_seq_len, head_dim),dtype ="float32")
+dtype = "float16"
+cache_kv = paddle.rand((2, max_batch, kv_head, max_seq_len, head_dim),dtype = dtype)
 batch = 2
 q_len = 1
 
 # 一共要解码100次哦！
 decoder_len = 100
-Q = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype ="float32")
-K = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype ="float32")
-V = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype ="float32")
+Q = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
+K = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
+V = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
 
-ATTN_MASK = paddle.rand([batch,1,1,decoder_len],'float32')
+ATTN_MASK = paddle.rand([batch,1,1,decoder_len], dtype)
 
 
-my_all_out = paddle.empty((0, heads * head_dim),dtype ="float32")
-your_all_out = paddle.empty((0, heads * head_dim),dtype ="float32")
+my_all_out = paddle.empty((0, heads * head_dim),dtype =dtype)
+your_all_out = paddle.empty((0, heads * head_dim),dtype =dtype)
 
 
 for i in range(decoder_len):
@@ -48,14 +49,12 @@ for i in range(decoder_len):
 # 下面就是baseline哦！
 
 
-cache_k = paddle.empty((batch, heads, 0, head_dim),dtype ="float32")
-cache_v = paddle.empty((batch, heads, 0, head_dim),dtype ="float32")
+cache_k = paddle.empty((batch, heads, 0, head_dim),dtype =dtype)
+cache_v = paddle.empty((batch, heads, 0, head_dim),dtype =dtype)
 
 for i in range(decoder_len):
     import numpy as np
     
-    print("哈哈", i)
-
     q = Q[i]
     k = K[i]
     v = V[i]
