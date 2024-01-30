@@ -1,28 +1,31 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 import paddle
 from paddle.incubate.nn.functional import masked_multihead_attention
 
 heads = 32
 kv_head = heads
 head_dim = 128
-max_seq_len = 1280
-max_batch = 2
+max_seq_len = 2048*4
+max_batch = 1
 dtype = "float16"
 cache_kv = paddle.rand((2, max_batch, kv_head, max_seq_len, head_dim),dtype = dtype)
-batch = 2
+batch = max_batch
 q_len = 1
 
-# 一共要解码100次哦！
-decoder_len = 100
+# 一共要解码decoder_len次哦！
+decoder_len = 2040*4
 Q = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
 K = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
 V = paddle.rand((decoder_len, batch, heads, 1, head_dim),dtype = dtype)
 
-ATTN_MASK = paddle.rand([batch,1,1,decoder_len], dtype)
+ATTN_MASK = paddle.rand([batch,1,1,max_seq_len], dtype)
 
 
-my_all_out = paddle.empty((0, heads * head_dim),dtype =dtype)
+
 your_all_out = paddle.empty((0, heads * head_dim),dtype =dtype)
 
+my_all_out = paddle.empty((0, heads * head_dim),dtype =dtype)
 
 for i in range(decoder_len):
     q = Q[i]
@@ -32,9 +35,11 @@ for i in range(decoder_len):
     qkv = qkv.reshape([3, batch, heads, q_len, head_dim])
     qkv_out = qkv.transpose([1, 3, 0, 2, 4]).reshape([batch,3 * heads * head_dim])
 
-    seq_lens = paddle.to_tensor([[i], [i]]).astype("int32")
+    seq_lens = paddle.to_tensor([[i] * batch]).astype("int32")
 
     attn_mask = ATTN_MASK[:,:,:,:i+1]
+    
+    paddle.device.cuda.synchronize(0)
 
     fmha_out = masked_multihead_attention(
         x=qkv_out,
@@ -43,8 +48,29 @@ for i in range(decoder_len):
         sequence_lengths=seq_lens)[0]
     my_all_out = paddle.concat([fmha_out,my_all_out],axis=0)
 
+i = decoder_len - 1
+q = Q[i]
+k = K[i]
+v = V[i]
+attn_mask = ATTN_MASK[:,:,:,:i+1]
+seq_lens = paddle.to_tensor([[i] * batch]).astype("int32")
 
+import datetime
+starttime = datetime.datetime.now()
+paddle.device.cuda.synchronize(0)
 
+for i in range(100):
+    fmha_out = masked_multihead_attention(
+        x=qkv_out,
+        src_mask=attn_mask,
+        cache_kv=cache_kv,
+        sequence_lengths=seq_lens)[0]
+
+paddle.device.cuda.synchronize(0)
+endtime = datetime.datetime.now()
+duringtime = endtime - starttime
+time_ms = duringtime.seconds * 1000 + duringtime.microseconds / 1000.0
+print("The whoel time : ", time_ms, "ms")
 
 # 下面就是baseline哦！
 
@@ -79,6 +105,6 @@ for i in range(decoder_len):
 
 
 print(paddle.max(my_all_out - your_all_out))
-
+print(paddle.min(my_all_out - your_all_out))
 
 
