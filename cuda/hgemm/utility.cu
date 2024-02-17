@@ -15,18 +15,18 @@ void init(float *a, int size) {
   }
 }
 
-void naive_gemm_cpu(const float *a, const float *b, float *c_cpu_fp32, int m,
-                    int n, int k) {
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      double sum = 0.f;
-      for (int ii = 0; ii < k; ii++) {
-        sum += a[i * k + ii] * b[ii * n + j];
-      }
-      c_cpu_fp32[i * n + j] = sum;
-    }
-  }
-}
+// void naive_gemm_cpu(const float *a, const float *b, float *c_cpu_fp32, int m,
+//                     int n, int k) {
+//   for (int i = 0; i < m; i++) {
+//     for (int j = 0; j < n; j++) {
+//       double sum = 0.f;
+//       for (int ii = 0; ii < k; ii++) {
+//         sum += a[i * k + ii] * b[ii * n + j];
+//       }
+//       c_cpu_fp32[i * n + j] = sum;
+//     }
+//   }
+// }
 
 void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
                     int n, int k, const half *broadcast, std::string act) {
@@ -36,8 +36,8 @@ void naive_gemm_cpu(const half *a, const half *b, float *c_cpu_fp32, int m,
       for (int ii = 0; ii < k; ii++) {
         sum += (float)(a[i * k + ii]) * (float)(b[ii * n + j]);
       }
-      if(broadcast)
-      {
+      // 这里的是乘broadcast！
+      if(broadcast) {
         sum *= (float)broadcast[j];
       }
       if (act == "relu") {

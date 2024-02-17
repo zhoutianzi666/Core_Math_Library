@@ -91,7 +91,7 @@ using EpilogueOp = cutlass::epilogue::thread::LinearCombination<
     float,               
     float>;
 
-using Gemm = cutlass::gemm::device::Gemm<
+using Gemm_75 = cutlass::gemm::device::Gemm<
     cutlass::half_t,
     cutlass::layout::ColumnMajor,
     cutlass::half_t,
@@ -127,8 +127,10 @@ using Gemm_80 = cutlass::gemm::device::Gemm<
   cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
   2, 
   8, 8 ,
-  true>;
+  // If true, kernel supports split-K with serial reduction
+    true>;
 
+using Gemm = Gemm_75;
 
 cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
                            DATATYPE const *A, int lda, DATATYPE const *B,
@@ -149,7 +151,7 @@ cudaError_t CutlassHgemmNN(int M, int N, int K, DATATYPE alpha,
   // multiplication computation
   size_t workspace_size = Gemm::get_workspace_size(arguments);
   size_t bytes = Gemm::get_workspace_size(arguments);
-  printf("需要临时空间为: %d 字节\n", bytes);
+  printf("cutlass gemm 需要临时空间大小为: %d 字节\n", bytes);
   if(split_k_slices == 1) {
     assert(bytes == 0);
   }

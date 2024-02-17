@@ -22,9 +22,9 @@ void CUDA_CHECK(cudaError_t status) {
 }
 
 int main(void) {
-  int m = 512;
-  int n = 512;
-  int k = 512;
+  int m = 128;
+  int n = 256;
+  int k = 5120;
   // a,b,c is in cpu place!
   DATATYPE *a, *b, *broadcast;
   cudaError_t status = cudaMallocHost(&a, sizeof(DATATYPE) * m * k);
@@ -37,6 +37,8 @@ int main(void) {
   init(a, m * k);
   init(b, k * n);
   init(broadcast, n);
+  
+  //memset(broadcast, 0, sizeof(C_DATATYPE) * n);
 
   C_DATATYPE *c;
   status = cudaMallocHost(&c, sizeof(C_DATATYPE) * m * n);
@@ -65,8 +67,7 @@ int main(void) {
 
   cudaEvent_t beg, end;
 
-  for (int i = 0; i < REPEATE + REPEATE; i++) {
-
+  for (int i = 0; i < WARMUP + REPEATE; i++) {
 
     if (i == WARMUP) {
       cudaEventCreate(&beg);
@@ -80,6 +81,7 @@ int main(void) {
     // 而且这里带有激活函数哦，这里是relu
     // GemmWithBroadcast(m, n, k, alpha, dev_a, k, dev_b, n, beta, dev_c, n, dev_broadcast);
 
+    // 这个函数接受的都是列存储的！
     CutlassHgemmNN(n, m, k, alpha, dev_b, n, dev_a, k, beta, dev_c, n);
     // cublasHgemm(handle,CUBLAS_OP_N,CUBLAS_OP_N,
     //                           n,m,k,
@@ -118,6 +120,7 @@ int main(void) {
 
   float *c_cpu_fp32 = (float *)malloc(sizeof(float) * m * n);
   memset(c_cpu_fp32, 0, sizeof(float) * m * n);
+
   //naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, broadcast, "relu");
   naive_gemm_cpu(a, b, c_cpu_fp32, m, n, k, nullptr, "identity");
 
