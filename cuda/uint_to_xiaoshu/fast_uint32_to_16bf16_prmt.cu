@@ -2,7 +2,7 @@
 #include <cuda_bf16.h>
 #include <stdio.h>
 #include <cuda_fp16.h>
-// nvcc fast_uint32_to_16bf16.cu -arch sm_80
+// nvcc fast_uint32_to_16bf16_prmt.cu -arch sm_80
 
 __device__ inline void int32_to_16bf16(
     __nv_bfloat16 halves[16], uint32_t signed_chars) {
