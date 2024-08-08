@@ -4,7 +4,7 @@
 #include <cuda_fp16.h>
 // nvcc fast_uint32_to_16bf16.cu -arch sm_80
 
-__device__ inline void int32_to_half16(
+__device__ inline void int32_to_16bf16(
     __nv_bfloat16 halves[16], uint32_t signed_chars) {
   uint32_t* h = reinterpret_cast<uint32_t*>(halves);
   uint32_t i8s = signed_chars;
@@ -71,7 +71,7 @@ __global__ void helloFromGPU (void)
         weight |= (uint32_weight[i] << i*(32/N));
     }
 
-    int32_to_half16(halves, weight);
+    int32_to_16bf16(halves, weight);
 
     for (int i = 0; i < N; ++i) {
         printf("%f\n", (float)(halves[i]));
