@@ -31,24 +31,27 @@ __global__ void copy_global_shm_register(const T *Aptr)
 
     auto tAgA = g2s_thr_copy.partition_S(gA);
     auto tAsA = g2s_thr_copy.partition_D(sA);
-    
+    // tAgA 是 global memory地址
+    // tAsA 是 shared memory地址，但是每个thread指向哪个地址呢？这个是比较有讲究的！
     cute::copy(g2s_tiled_copy, tAgA((_,_),_,_), tAsA((_,_),_,_));
     __syncthreads();
 
-    if (idx == 0) {
+    if (idx == 9) {
         PRINT("gA.shape()", gA.shape());
         PRINT("gA.stride()", gA.stride());
         PRINT("tAgA.shape()", tAgA.shape());
         PRINT("tAgA.stride()", tAgA.stride());
+
+        PRINT("tAsA.shape()", tAsA.shape());
+        PRINT("tAsA.stride()", tAsA.stride());
         
-        printf("%f\n", (float)(tAgA((0,0),0,0)));
-        printf("%f\n", (float)(tAgA((0,1),0,0)));
-        printf("%f\n", (float)(tAgA((0,2),0,0)));
-        printf("%f\n", (float)(tAgA((0,3),0,0)));
-        printf("%f\n", (float)(tAgA((0,4),0,0)));
-        printf("%f\n", (float)(tAgA((0,5),0,0)));
-        printf("%f\n", (float)(tAgA((0,6),0,0)));
-        printf("%f\n", (float)(tAgA((0,7),0,0)));
+        const T* p = (const T*)(tAsA((_,_),0,0).data().get());
+        printf("%d\n", p - Ashm);
+        for (int i = 0; i < 8; ++i) {
+            float a = (float)(tAsA((0,i),0,0));
+            float b = (float)(tAgA((0,i),0,0));
+            if (a!=b) printf("errors\n\n");
+        }
     }
 }
 
@@ -78,6 +81,9 @@ int main()
                                               make_shape(Int<M>{}, Int<N>{})));
 
     static constexpr int shm_size = cute::cosize(SmemLayout{}) * sizeof(T);
+
+    PRINT("SmemLayout", SmemLayout{}.shape());
+    PRINT("SmemLayout", SmemLayout{});
 
     thrust::host_vector<T> h_A(M*N);
     for (int i = 0; i < M * N; ++i) {
