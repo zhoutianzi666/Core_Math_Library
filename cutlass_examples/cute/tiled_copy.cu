@@ -100,6 +100,16 @@ __global__ void copy_kernel_vectorized(TensorS S, TensorD D, ThreadLayout, VecLa
 {
   using namespace cute;
   using Element = typename TensorS::value_type;
+  
+  if (thread0())
+  {
+      printf("%d\n", size<2>(S));
+      print(S.stride());
+  printf("\n");
+  printf("\n");
+  }
+    //((_128,_64),2,8)((_1,256),_128,16384) // LayoutLeft{}
+  // ((_128,_64),2,8)((512,_1),65536,_64) // LayoutRight{}
 
   // Slice the tensors to obtain a view into each tile.
   Tensor tile_S = S(make_coord(_, _), blockIdx.x, blockIdx.y);  // (BlockShape_M, BlockShape_N)
@@ -137,18 +147,37 @@ __global__ void copy_kernel_vectorized(TensorS S, TensorD D, ThreadLayout, VecLa
   // Copy from GMEM to RMEM and from RMEM to GMEM
   copy(tiled_copy, thr_tile_S, fragment);
 
-
   if (thread0()) {
-    printf("%d\n", (int)(size<0>(fragment)));
-    printf("%d\n", (int)(size<1>(fragment)));
-    printf("%d\n", (int)(size<2>(fragment)));
-    float *tmp = (float*)(fragment.data());
-    for (int i = 0; i < 64; i++) {
-      printf("%f\n", tmp[i]);
-    }
+    print(fragment.shape());
+    printf("\n");
+    print(fragment.stride());
   }
 
-  copy(tiled_copy, fragment, thr_tile_D);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // if (thread0()) {
+  //   printf("%d\n", (int)(size<0>(fragment)));
+  //   printf("%d\n", (int)(size<1>(fragment)));
+  //   printf("%d\n", (int)(size<2>(fragment)));
+  //   float *tmp = (float*)(fragment.data());
+  //   for (int i = 0; i < 64; i++) {
+  //     printf("%f\n", tmp[i]);
+  //   }
+  // }
+
+  copy(tiled_copy, fragment(_,_,_), thr_tile_D(_,_,_));
 }
 
 /// Main function
@@ -177,8 +206,12 @@ int main(int argc, char** argv) {
 
 
   // Make tensors
-  Tensor tensor_S = make_tensor(make_gmem_ptr(thrust::raw_pointer_cast(d_S.data())), make_layout(tensor_shape));
-  Tensor tensor_D = make_tensor(make_gmem_ptr(thrust::raw_pointer_cast(d_D.data())), make_layout(tensor_shape));
+  Tensor tensor_S = make_tensor(make_gmem_ptr(
+    thrust::raw_pointer_cast(d_S.data())), 
+    make_layout(tensor_shape, LayoutRight{}));
+  Tensor tensor_D = 
+  make_tensor(make_gmem_ptr(thrust::raw_pointer_cast(d_D.data())), 
+  make_layout(tensor_shape, LayoutRight{}));
 
   //
   // Tile tensors
@@ -187,11 +220,13 @@ int main(int argc, char** argv) {
   // Define a statically sized block (M, N).
   // Note, by convention, capital letters are used to represent static modes.
   auto block_shape = make_shape(Int<128>{}, Int<64>{});
+  
+  // 这他吗也太奇怪了，那如果没有办法整除咋办啊？？
 
-  if ((size<0>(tensor_shape) % size<0>(block_shape)) || (size<1>(tensor_shape) % size<1>(block_shape))) {
-    std::cerr << "The tensor shape must be divisible by the block shape." << std::endl;
-    return -1;
-  }
+  // if ((size<0>(tensor_shape) % size<0>(block_shape)) || (size<1>(tensor_shape) % size<1>(block_shape))) {
+  //   std::cerr << "The tensor shape must be divisible by the block shape." << std::endl;
+  //   return -1;
+  // }
   // Equivalent check to the above
   if (not weakly_compatible(block_shape, tensor_shape)) {
     std::cerr << "Expected the tensors to be weakly compatible with the block_shape." << std::endl;
@@ -206,9 +241,17 @@ int main(int argc, char** argv) {
   Tensor tiled_tensor_D = tiled_divide(tensor_D, block_shape);      // ((M, N), m', n')
 
   // Thread arrangement
-  Layout thr_layout = make_layout(make_shape(Int<32>{}, Int<8>{}));
+  Layout thr_layout = make_layout(make_shape(Int<32>{}, Int<8>{}), LayoutRight{});
+  
+  // Layout thr_layout = Layout< Shape<_32,_8 >,
+  //       Stride<_1, _32>> {};
+
+  //print_latex(thr_layout);
+
   // Vector dimensions
-  Layout vec_layout = make_layout(make_shape(Int<8>{}, Int<1>{}));
+  Layout vec_layout = make_layout(make_shape(Int<1>{}, Int<4>{}), LayoutRight{});
+
+  print_latex(vec_layout);
 
   //
   // Determine grid and block dimensions
@@ -262,7 +305,7 @@ int main(int argc, char** argv) {
                     Shape<Shape<_2, _2>, Int<32 / 32>>,
                     Stride<Shape<_1, _2>, _4>>;
 
-  print_latex(haha{});
+  //print_latex(haha{});
   return 0;
 }
 
