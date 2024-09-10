@@ -144,17 +144,17 @@ int main() {
                                         //make_layout(Shape<_2, _2, _4>{}),   // thr_layout
                                         make_layout(Shape<_1, _1, _1>{}),   // thr_layout
                                         make_layout(Shape<_1, _1, _1>{}))); // val_layout
-    // constexpr int M = 128;
-    // constexpr int N = 128;
-    // constexpr int K = 32;
+    // constexpr int M = 16;
+    // constexpr int N = 16;
+    // constexpr int K = 16;
 
-    constexpr int M = 16;
-    constexpr int N = 8;
-    constexpr int K = 16;
+    // constexpr int M = 16;
+    // constexpr int N = 8;
+    // constexpr int K = 16;
 
-    // constexpr int M = 256;
-    // constexpr int N = 256;
-    // constexpr int K = 128;
+    constexpr int M = 256;
+    constexpr int N = 256;
+    constexpr int K = 128;
 
     thrust::host_vector<T> h_A(M*K);
     thrust::host_vector<T> h_B(K*N);
@@ -193,6 +193,7 @@ int main() {
         for (int j = 0; j < N; j++) {
             float sum = 0.f;
             for (int k = 0; k < K; ++k) {
+                // h_B是col major的！
                 sum += (float)(h_A[i * K + k]) * (float)(h_B[k + j * K]);
             }
             float data = h_C[i * N + j];
