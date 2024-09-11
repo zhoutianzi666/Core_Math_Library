@@ -3,18 +3,6 @@
 
 #include <cute/tensor.hpp>
 
-#define PRINT(name, content) \
-    print(name);             \
-    print(" : ");            \
-    print(content);          \
-    print("\n");
-
-#define PRINTTENSOR(name, content) \
-    print(name);                   \
-    print(" : ");                  \
-    print_tensor(content);         \
-    print("\n");
-
 using namespace cute;
 int main() {
     // mma
@@ -33,6 +21,6 @@ int main() {
         Int<kMmaEURepeatM>{}, Int<kMmaEURepeatN>{}, Int<kMmaEURepeatK>{})));
     using MMA_P_T = Tile<Int<kMmaPM>, Int<kMmaPN>, Int<kMmaPK>>;
     using MMA = decltype(make_tiled_mma(mma_atom{}, MMA_EU_RepeatT{}, MMA_P_T{}));
-    
+
     print_latex(MMA{});
 }
