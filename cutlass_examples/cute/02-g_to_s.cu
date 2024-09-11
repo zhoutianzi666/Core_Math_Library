@@ -21,7 +21,9 @@ __global__ void copy_global_shm_register(const T *Aptr)
     extern __shared__ T shm_data[];
     T *Ashm = shm_data;
     
-    auto gA = make_tensor(make_gmem_ptr(Aptr), make_shape(Int<M>{}, Int<N>{}), make_stride(Int<N>{}, Int<1>{}));
+    auto gA = make_tensor(make_gmem_ptr(Aptr), 
+                          make_shape(Int<M>{}, Int<N>{}), 
+                          make_stride(Int<N>{}, Int<1>{}));
     auto sA = make_tensor(make_smem_ptr(Ashm), SmemLayout{});
 
     G2SCopy g2s_tiled_copy;
@@ -30,9 +32,28 @@ __global__ void copy_global_shm_register(const T *Aptr)
     auto tAgA = g2s_thr_copy.partition_S(gA);
     auto tAsA = g2s_thr_copy.partition_D(sA);
 
+    if (idx == 1) {
+        //print_latex(g2s_tiled_copy);
+        print_tensor(tAgA);
+        print_tensor(tAsA);
+        print(tAgA.shape());
+    }
+    
+
     // 将数据从全局内存到拷贝到共享内存吧！
     cute::copy(g2s_tiled_copy, tAgA((_,_),_,_), tAsA((_,_),_,_));
     __syncthreads();
+
+
+    if (idx == 1) {
+        //print_latex(g2s_tiled_copy);
+        print_tensor(tAgA);
+        print_tensor(tAsA);
+        print(tAgA.shape());
+    }
+
+    return;
+
 
     if (idx == 9) {
         PRINT("gA.shape()", gA.shape());
@@ -40,7 +61,7 @@ __global__ void copy_global_shm_register(const T *Aptr)
 
         PRINT("tAgA.shape()", tAgA.shape());
         PRINT("tAgA.stride()", tAgA.stride());
-        
+
         PRINT("tAsA.shape()", tAsA.shape());
         PRINT("tAsA.stride()", tAsA.stride());
         
@@ -52,7 +73,7 @@ __global__ void copy_global_shm_register(const T *Aptr)
             if (a!=b) printf("errors\n\n");
             printf("%f\n", a);
         }
-        // 
+        // 打印共享内存中的数据
         for (int i = 0; i < 8; ++i) {
             float a = (float)(*(Ashm + i + 32));
             printf("%f\n", a);
@@ -64,7 +85,7 @@ __global__ void copy_global_shm_register(const T *Aptr)
 int main() {
     using T = cute::half_t;
     
-    constexpr int M = 128;
+    constexpr int M = 64;
     constexpr int N = 64;
 
     using g2s_copy_op = SM80_CP_ASYNC_CACHEGLOBAL<cute::uint128_t>;
@@ -87,8 +108,9 @@ int main() {
 
     static constexpr int shm_size = cute::cosize(SmemLayout{}) * sizeof(T);
 
-    PRINT("SmemLayout", SmemLayout{}.shape());
-    PRINT("SmemLayout", SmemLayout{});
+    // PRINT("SmemLayout", SmemLayout{}.shape());
+    // PRINT("SmemLayout", SmemLayout{});
+    // print_layout(SmemLayout{});
 
     thrust::host_vector<T> h_A(M*N);
     for (int i = 0; i < M * N; ++i) {
