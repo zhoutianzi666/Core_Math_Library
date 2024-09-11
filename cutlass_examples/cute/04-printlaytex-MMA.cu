@@ -21,6 +21,10 @@ int main() {
         Int<kMmaEURepeatM>{}, Int<kMmaEURepeatN>{}, Int<kMmaEURepeatK>{})));
     using MMA_P_T = Tile<Int<kMmaPM>, Int<kMmaPN>, Int<kMmaPK>>;
     using MMA = decltype(make_tiled_mma(mma_atom{}, MMA_EU_RepeatT{}, MMA_P_T{}));
-
-    print_latex(MMA{});
+    
+    auto thr_mma = MMA{}.get_thread_slice(0);
+    print(thr_mma);
+    print(MMA{});
+    
+   // print_latex(thr_mma);
 }
