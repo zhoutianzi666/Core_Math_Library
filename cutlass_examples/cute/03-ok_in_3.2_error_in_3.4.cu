@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 #include <cute/tensor.hpp>
-//git reset --hard v3.2.1
-//git reset --hard v3.4.1
+// git reset --hard v3.2.1
+// git reset --hard v3.4.1
 
 #define PRINT(name, content) \
     print(name);             \
@@ -36,20 +36,20 @@ int main() {
     static constexpr int kMmaEURepeatK = 1;
 
     using mma_atom_shape = mma_traits::Shape_MNK;
-    static constexpr int kMmaPM = 1;
-    static constexpr int kMmaPN = 1;
-    static constexpr int kMmaPK = 2;
+    static constexpr int kMmaPM = 16;
+    static constexpr int kMmaPN = 8;
+    static constexpr int kMmaPK = 32;
     using MMA_EU_RepeatT = decltype(make_layout(make_shape(
         Int<kMmaEURepeatM>{}, Int<kMmaEURepeatN>{}, Int<kMmaEURepeatK>{})));
     using MMA_P_T = Tile<Int<kMmaPM>, Int<kMmaPN>, Int<kMmaPK>>;
     using MMA = decltype(make_tiled_mma(mma_atom{}, MMA_EU_RepeatT{}, MMA_P_T{}));
+    
     auto s2r_tiled_copy_a = make_tiled_copy_A(S2RCopyAtomA{}, MMA{});
     auto s2r_tiled_copy_b = make_tiled_copy_B(S2RCopyAtomB{}, MMA{});
 
     // 这个打印的是src到dst的关系哦！
-    //print_latex(s2r_tiled_copy_a);
-    //print_latex(s2r_tiled_copy_b);
-    
-    
-    print_latex(MMA{});
+    print_latex(s2r_tiled_copy_a);
+    print_latex(s2r_tiled_copy_b);
+
+    //print_latex(MMA{});
 }
