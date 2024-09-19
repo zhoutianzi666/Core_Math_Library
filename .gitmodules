@@ -1,3 +1,6 @@
 [submodule "cutlass"]
 	path = cutlass
 	url = https://github.com/NVIDIA/cutlass.git
+[submodule "cutlass_examples/cute/reed_lau_cute-gemm"]
+	path = cutlass_examples/cute/reed_lau_cute-gemm
+	url = https://github.com/reed-lau/cute-gemm
