@@ -32,24 +32,24 @@ __global__ void copy_global_shm_register(const T *Aptr)
     auto tAgA = g2s_thr_copy.partition_S(gA);
     auto tAsA = g2s_thr_copy.partition_D(sA);
 
-    if (idx == 1) {
-        //print_latex(g2s_tiled_copy);
-        print_tensor(tAgA);
-        print_tensor(tAsA);
-        print(tAgA.shape());
-    }
-    
-
     // 将数据从全局内存到拷贝到共享内存吧！
     cute::copy(g2s_tiled_copy, tAgA((_,_),_,_), tAsA((_,_),_,_));
     __syncthreads();
 
 
-    if (idx == 1) {
+    if (idx == 0) {
         //print_latex(g2s_tiled_copy);
         print_tensor(tAgA);
-        print_tensor(tAsA);
-        print(tAgA.shape());
+        //print_tensor(tAsA);
+        //print(tAgA.shape());
+    }
+
+    if (idx == 0) {
+        // 打印共享内存中的数据
+        for (int i = 0; i < M*N; ++i) {
+            float a = (float)(*(Ashm + i));
+            printf("%f\n", a);
+        }
     }
 
     return;
@@ -71,11 +71,6 @@ __global__ void copy_global_shm_register(const T *Aptr)
             float a = (float)(tAsA((0,i),0,0));
             float b = (float)(tAgA((0,i),0,0));
             if (a!=b) printf("errors\n\n");
-            printf("%f\n", a);
-        }
-        // 打印共享内存中的数据
-        for (int i = 0; i < 8; ++i) {
-            float a = (float)(*(Ashm + i + 32));
             printf("%f\n", a);
         }
     }
@@ -103,14 +98,19 @@ int main() {
         Swizzle<3, 3, 3>{},
         make_layout(make_shape(Int<8>{}, Int<32>{}),
                     make_stride(Int<32>{}, Int<1>{}))));
-    using SmemLayout = decltype(tile_to_shape(SmemLayoutAtom{},
+    using SmemLayout_ = decltype(tile_to_shape(SmemLayoutAtom{},
                                               make_shape(Int<M>{}, Int<N>{})));
+    
+    using SmemLayout = SmemLayout_;
+    //using SmemLayout = decltype(SmemLayout_{}.layout_fn());
 
     static constexpr int shm_size = cute::cosize(SmemLayout{}) * sizeof(T);
 
     // PRINT("SmemLayout", SmemLayout{}.shape());
     // PRINT("SmemLayout", SmemLayout{});
-    // print_layout(SmemLayout{});
+
+    // 这句话会打印SmemLayout的layout哦，有很多数字啊！
+    print_layout(SmemLayout{});
 
     thrust::host_vector<T> h_A(M*N);
     for (int i = 0; i < M * N; ++i) {
