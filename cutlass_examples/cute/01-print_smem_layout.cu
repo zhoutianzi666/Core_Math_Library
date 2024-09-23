@@ -15,9 +15,9 @@
 using namespace cute;
 // 
 int main() {
-    constexpr int M = 128;
+    constexpr int M = 64;
     constexpr int N = 64;
-    constexpr int N1 = 32;
+    constexpr int N1 = 64;
     
     using SmemLayoutAtom = decltype(composition(
         Swizzle<3, 3, 3>{},
@@ -27,6 +27,12 @@ int main() {
     using SmemLayout = decltype(tile_to_shape(SmemLayoutAtom{},
                                               make_shape(Int<M>{}, Int<N>{})));
 
-    PRINT("SmemLayout", SmemLayout{}.shape());
-    PRINT("SmemLayout", SmemLayout{});
+    //PRINT("SmemLayout", SmemLayout{});
+    //print_latex(SmemLayout{});
+    //print_layout(SmemLayout{});
+    
+    // git reset --hard v3.1.0 才有下面这句话！
+    // print_latex(SmemLayout{}.layout_fn());
+    print_layout(SmemLayout{}.layout_fn());
+    //PRINT("SmemLayout", SmemLayout{}.layout_fn());
 }
