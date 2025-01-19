@@ -16,12 +16,12 @@ set(CUDA_NVCC_FLAGS -std=c++17 -g -gencode arch=compute_80,code=sm_80;)
 
 #CUDA_ADD_EXECUTABLE(a.out shape_stride_layout.cu)
 
-#CUDA_ADD_EXECUTABLE(a.out tiled_copy.cu)
+CUDA_ADD_EXECUTABLE(a.out tiled_copy.cu)
 #CUDA_ADD_EXECUTABLE(a.out sgemm_1.cu)
 #CUDA_ADD_EXECUTABLE(a.out zeroine_copy.cu)
 #CUDA_ADD_EXECUTABLE(a.out demo_shengying.cu)
 #CUDA_ADD_EXECUTABLE(a.out issue_1.cu)
-CUDA_ADD_EXECUTABLE(a.out naive_cute_gemm.cu)
+#CUDA_ADD_EXECUTABLE(a.out naive_cute_gemm.cu)
 
 
 target_link_libraries(a.out cublas)
