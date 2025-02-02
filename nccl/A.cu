@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include <stdint.h>
 // nvcc -ccbin mpic++ A.cu -o test -L/usr/local/cuda/lib64 -lnccl
- 
+// mpirun --allow-run-as-root  -n 2 ./test 
+
 #define MPICHECK(cmd) do {                          \
   int e = cmd;                                      \
   if( e != MPI_SUCCESS ) {                          \
@@ -84,10 +85,10 @@ int main(int argc, char* argv[])
   }
 
  
-printf("myRank %d\n", myRank);
-printf("nRanks %d\n", nRanks);
-printf("localRank %d\n", localRank);
-exit(0); 
+// printf("myRank %d\n", myRank);
+// printf("nRanks %d\n", nRanks);
+// printf("localRank %d\n", localRank);
+// exit(0); 
  
   //each process is using two GPUs
   int nDev = 2;
@@ -97,17 +98,15 @@ exit(0);
   float** recvbuff = (float**)malloc(nDev * sizeof(float*));
   cudaStream_t* s = (cudaStream_t*)malloc(sizeof(cudaStream_t)*nDev);
 
-
-
-
-
- 
   //picking GPUs based on localRank
   for (int i = 0; i < nDev; ++i) {
     CUDACHECK(cudaSetDevice(localRank*nDev + i));
     CUDACHECK(cudaMalloc(sendbuff + i, size * sizeof(float)));
     CUDACHECK(cudaMalloc(recvbuff + i, size * sizeof(float)));
-    CUDACHECK(cudaMemset(sendbuff[i], 1, size * sizeof(float)));
+    float aa[4] = {7,1,1,1};
+    CUDACHECK(cudaMemcpy(sendbuff[i], aa, 4 * sizeof(float), cudaMemcpyHostToDevice ));
+
+    //CUDACHECK(cudaMemset(sendbuff[i], 1, size * sizeof(float)));
     CUDACHECK(cudaMemset(recvbuff[i], 0, size * sizeof(float)));
     CUDACHECK(cudaStreamCreate(s+i));
   }
@@ -148,6 +147,13 @@ exit(0);
  
   //freeing device memory
   for (int i=0; i<nDev; i++) {
+
+
+    float aa[4] = {1,1,1,1};
+    CUDACHECK(cudaMemcpy(aa, recvbuff[i], 4 * sizeof(float), cudaMemcpyDeviceToHost ));
+
+    printf("%f\n", aa[0]);
+
      CUDACHECK(cudaFree(sendbuff[i]));
      CUDACHECK(cudaFree(recvbuff[i]));
   }

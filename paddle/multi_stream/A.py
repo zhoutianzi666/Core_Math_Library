@@ -2,9 +2,7 @@
 import paddle
 
 
-
-
-def haha(a,b):
+def exmaple_function(a,b):
     for i in range(100):
         c = paddle.matmul(a,b)
         a1 = c * 0.02 - 0.01
@@ -14,34 +12,24 @@ def haha(a,b):
 
     return c
 
-
-
-a = paddle.randn([5120,5120], dtype="float16")
-b = paddle.randn([5120,5120], dtype="float16")
-
-
-
+a = paddle.randn([5120,5120], dtype="bfloat16")
+b = paddle.randn([5120,5120], dtype="bfloat16")
 
 
 new = paddle.device.Stream()
-
 old = paddle.device.current_stream()
 new.wait_stream(old)
 
-
-out0 = haha(a,b)
+out0 = exmaple_function(a,b)
 
 paddle.device.set_stream(new)
 
-print("sdcdsv")
-
-
-out1 = haha(a,b)
+out1 = exmaple_function(a,b)
 
 old.wait_stream(new)
 paddle.device.set_stream(old)
 
-
 paddle.device.synchronize()
 print(out0-out1)
+
 
