@@ -3,7 +3,7 @@ import torch
 
 
 def haha(a,b):
-    for i in range(10):
+    for i in range(100):
         c = torch.mm(a,b)
         a1 = c * 0.02 - 0.01
         b1 = c * 0.01
@@ -27,9 +27,6 @@ new.wait_stream(old)
 out0 = haha(a,b)
 
 torch.cuda.set_stream(new)
-
-print("sdcdsv")
-
 
 out1 = haha(a,b)
 
